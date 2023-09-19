@@ -85,8 +85,8 @@ class loginWindow(QMainWindow, Ui_loginWindow):
         super(loginWindow, self).__init__()
         self.setupUi(self)
 
-        self.label_7.setText('Developed in 2020  Ver.2.5')
-        self.label_2.setText('HR Information System V2.5')
+        self.label_7.setText('Developed in 2020  Ver.2.6')
+        self.label_2.setText('HR Information System V2.6')
 
         self.id = ''
         self.pushButton.clicked.connect(self.login)
@@ -3828,7 +3828,13 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.comboBox_3.setEnabled(True)
 
             self.pushButton_2.setEnabled(False)
-            self.pushButton_5.setEnabled(False)
+            if HR_MODE:
+                self.pushButton_5.setEnabled(True)
+                self.pushButton_5.setText('Cancel Leave Request')
+            else:
+                self.pushButton_5.setEnabled(False)
+                self.pushButton_5.setText('DECLINE')
+
             self.pushButton.setEnabled(False)
             self.pushButton_4.setEnabled(False)
             self.pushButton_3.setEnabled(False)
@@ -3846,6 +3852,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
             self.pushButton_2.setEnabled(True)
             self.pushButton_5.setEnabled(True)
+            self.pushButton_5.setText('DECLINE')
+
             self.pushButton.setEnabled(True)
             self.pushButton_4.setEnabled(True)
             self.pushButton_3.setEnabled(True)
@@ -4050,6 +4058,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                 reconnect_DB(self)
                 cur = DB.cursor()
                 cur.execute(SQL, (date_min, date_max))
+
         else:
             SQL = """SELECT * FROM leave_request WHERE APPLY_DTTM>=%s AND APPLY_DTTM<%s AND USER_ID IN %s"""
             try:
@@ -4606,6 +4615,128 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         index = self.tableWidget_3.currentRow()
         if index == -1:
             QMessageBox.warning(self, 'Empty Selection', 'Please select a record first!')
+            return
+
+        if self.pushButton_5.text()=="Cancel Leave Request":
+            request_id = self.tableWidget_3.item(index, 0).text()
+            a = QMessageBox.question(self, 'Confirmation',
+                                     f'Are you sure to cancel the selected request?\nRequest ID: {request_id}\n')
+            if a == QMessageBox.No:
+                return
+
+            self.cursor_cancel = DB.cursor()
+            SQL = """SELECT TYPE, DURING, USER_ID, CURRENT_TO FROM leave_request WHERE SERIAL=%s"""
+            try:
+                self.cursor_cancel.execute(SQL, (request_id))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_cancel=DB.cursor()
+                self.cursor_cancel.execute(SQL, (request_id))
+
+            res_po = self.cursor_cancel.fetchall()
+            leave_type = str(res_po[0][0]).strip()
+            duration = float(res_po[0][1])
+            user_id = int(res_po[0][2])
+            current_to = int(res_po[0][3])
+
+            #print(leave_type, duration, user_id)
+
+            if leave_type=='Annual leave' and current_to == 9999:
+                SQL = """SELECT AN_DAYS FROM akt_staff_ WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (user_id))
+                res_po = self.cursor_cancel.fetchall()
+                an_days = float(res_po[0][0])
+                an_days += duration
+                #print(an_days)
+                SQL = """UPDATE akt_staff_ SET AN_DAYS=%s WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (an_days, user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (an_days, user_id))
+
+            elif leave_type=='Sick leave' and current_to == 9999:
+                SQL = """SELECT SICK_DAYS FROM akt_staff_ WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (user_id))
+                res_po = self.cursor_cancel.fetchall()
+                sick_days = float(res_po[0][0])
+                sick_days += duration
+                #print(sick_days)
+                SQL = """UPDATE akt_staff_ SET SICK_DAYS=%s WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (sick_days, user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (sick_days, user_id))
+
+            elif leave_type=='Personal leave' and current_to == 9999:
+                SQL = """SELECT PERSONAL_DAYS FROM akt_staff_ WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (user_id))
+                res_po = self.cursor_cancel.fetchall()
+                personal_days = float(res_po[0][0])
+                personal_days += duration
+                #print(personal_days)
+                SQL = """UPDATE akt_staff_ SET PERSONAL_DAYS=%s WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (personal_days, user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (personal_days, user_id))
+
+            elif leave_type=='Hometown' and current_to == 9999:
+                SQL = """SELECT HOME_TOWN FROM akt_staff_ WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (user_id))
+                res_po = self.cursor_cancel.fetchall()
+                home_town = int(res_po[0][0])
+                home_town += 1
+                #print(home_town)
+                SQL = """UPDATE akt_staff_ SET HOME_TOWN=%s WHERE ID=%s"""
+                try:
+                    self.cursor_cancel.execute(SQL, (home_town, user_id))
+                except pymysql.err.OperationalError:
+                    reconnect_DB(self)
+                    self.cursor_cancel = DB.cursor()
+                    self.cursor_cancel.execute(SQL, (home_town, user_id))
+
+            DB.commit()
+
+            SQL="""DELETE FROM leave_request WHERE SERIAL=%s"""
+            try:
+                self.cursor_cancel.execute(SQL, (int(request_id)))
+                DB.commit()
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_cancel = DB.cursor()
+                self.cursor_cancel.execute(SQL, (int(request_id)))
+                DB.commit()
+
+            self.cursor_cancel.close()
+            self.show_leave_history()
+            self.show_leave_panel()
+
             return
 
         request_id = self.tableWidget_3.item(index, 0).text()
@@ -7371,7 +7502,7 @@ def WriteUpdateCMD(new_name, old_name):
 if __name__ == '__main__':
     DB = None
     ID = -1
-    CURRENT_VER=2.5
+    CURRENT_VER=2.6
     HR_MODE = 0
 
     app = QApplication(sys.argv)
