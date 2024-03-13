@@ -29,6 +29,7 @@ if WIDTH <= 1366:
     from ui.calendar import Ui_CalendarSetting
     from ui.ot_sheet import Ui_OT_Sheet
     from ui.monitor import Ui_Monitor
+    from ui.tip_window import Ui_Tipwindow
 
     W_LEAVE=831
     H_LEAVE=550
@@ -56,6 +57,7 @@ else:
     from ui_highDPI.calendar import Ui_CalendarSetting
     from ui_highDPI.ot_sheet import Ui_OT_Sheet
     from ui_highDPI.monitor import Ui_Monitor
+    from ui_highDPI.tip_window import Ui_Tipwindow
 
     W_LEAVE = 1067
     H_LEAVE = 722
@@ -80,13 +82,20 @@ import pymysql
 import ftplib
 import subprocess
 
+"""class Tipwindow(QWidget, Ui_Tipwindow):
+    super(Tipwindow, self).__init__()
+    self.setupUi(self)
+
+class login_thread(QThread):
+    pass"""
+
 class loginWindow(QMainWindow, Ui_loginWindow):
     def __init__(self):
         super(loginWindow, self).__init__()
         self.setupUi(self)
 
-        self.label_7.setText('Developed in 2020  Ver.2.6')
-        self.label_2.setText('HR Information System V2.6')
+        self.label_7.setText('Developed in 2020  Ver.2.7')
+        self.label_2.setText('HR Information System V2.7')
 
         self.id = ''
         self.pushButton.clicked.connect(self.login)
@@ -608,6 +617,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if a != 16384:
             event.ignore()
             return
+
+        mailsender.yag_server.close()
 
         self.cursor.close()
         if DB != None:
@@ -3701,13 +3712,17 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         self.tableWidget_8.clicked.connect(self.show_forget_panel)
 
         self.pushButton_2.clicked.connect(self.leave_accepted)
+        self.pushButton_7.clicked.connect(self.leave_all_accepted)
         self.pushButton_5.clicked.connect(self.leave_declined)
         #self.pushButton_5.clicked.connect(self.show_leave_history)
         self.pushButton.clicked.connect(self.ot_accepted)
+        self.pushButton_9.clicked.connect(self.ot_all_accepted)
         self.pushButton_4.clicked.connect(self.ot_declined)
         self.pushButton_3.clicked.connect(self.late_accepted)
+        self.pushButton_10.clicked.connect(self.late_all_accepted)
         self.pushButton_6.clicked.connect(self.late_declined)
         self.pushButton_15.clicked.connect(self.forget_accepted)
+        self.pushButton_11.clicked.connect(self.forget_all_accepted)
         self.pushButton_14.clicked.connect(self.forget_declined)
 
         self.checkBox.stateChanged.connect(self.mode_switch)
@@ -3785,15 +3800,20 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         move_widgets_for_frame(self.tableWidget_4, x, y)
         move_widgets_for_frame(self.tableWidget_8, x, y)
 
-        move_widgets_only_vertical(self.pushButton, x, y)
-        move_widgets_only_vertical(self.pushButton_2, x, y)
-        move_widgets_only_vertical(self.pushButton_3, x, y)
-        move_widgets_only_vertical(self.pushButton_15, x, y)
+        move_widgets_only_vertical(self.pushButton_7, x, y)
+        move_widgets_only_vertical(self.pushButton_9, x, y)
+        move_widgets_only_vertical(self.pushButton_10, x, y)
+        move_widgets_only_vertical(self.pushButton_11, x, y)
 
-        move_widgets_both(self.pushButton_4, x, y)
-        move_widgets_both(self.pushButton_5, x, y)
-        move_widgets_both(self.pushButton_6, x, y)
-        move_widgets_both(self.pushButton_14, x, y)
+        move_widgets_both(self.pushButton, x/3, y)
+        move_widgets_both(self.pushButton_2, x/3, y)
+        move_widgets_both(self.pushButton_3, x/3, y)
+        move_widgets_both(self.pushButton_15, x/3, y)
+
+        move_widgets_both(self.pushButton_4, x/2, y)
+        move_widgets_both(self.pushButton_5, x/2, y)
+        move_widgets_both(self.pushButton_6, x/2, y)
+        move_widgets_both(self.pushButton_14, x/2, y)
 
         move_widgets_only_horizontal(self.pushButton_8, x, y)
         extend_widgets_horizontal(self.widget, x, y)
@@ -3806,6 +3826,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         extend_widgets_horizontal(self.pushButton_15, 50, y)
         extend_widgets_horizontal(self.pushButton_6, 50, y)
         extend_widgets_horizontal(self.pushButton_14, 50, y)
+
+        extend_widgets_horizontal(self.pushButton_7, 50, y)
+        extend_widgets_horizontal(self.pushButton_9, 50, y)
+        extend_widgets_horizontal(self.pushButton_10, 50, y)
+        extend_widgets_horizontal(self.pushButton_11, 50, y)
 
         extend_widgets_vertical(self.textEdit_2, x, y)
         extend_widgets_vertical(self.textEdit, x, y)
@@ -3841,6 +3866,10 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.pushButton_6.setEnabled(False)
             self.pushButton_15.setEnabled(False)
             self.pushButton_14.setEnabled(False)
+            self.pushButton_7.setEnabled(False)
+            self.pushButton_9.setEnabled(False)
+            self.pushButton_10.setEnabled(False)
+            self.pushButton_11.setEnabled(False)
         else:
             self.show_leave_contents()
             self.show_ot_contents()
@@ -3860,6 +3889,10 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.pushButton_6.setEnabled(True)
             self.pushButton_15.setEnabled(True)
             self.pushButton_14.setEnabled(True)
+            self.pushButton_7.setEnabled(True)
+            self.pushButton_9.setEnabled(True)
+            self.pushButton_10.setEnabled(True)
+            self.pushButton_11.setEnabled(True)
 
     def show_leave_contents(self):
         self.tableWidget_3.clearContents()
@@ -4611,6 +4644,33 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
 
+    def leave_all_accepted(self):
+        data = []
+        for i in range(self.tableWidget_3.rowCount()):
+            line = []
+            for j in range(self.tableWidget_3.columnCount()):
+                line.append(self.tableWidget_3.item(i, j).text())
+            data.append(line)
+
+        if not data:
+            QMessageBox.warning(self, 'Warning', 'No unconfirmed leave request remains on the table!')
+            return
+
+        a = QMessageBox.question(self, 'Confirmation',
+                                 f'Are you sure to accept all of the leave requests?')
+        if a == QMessageBox.No:
+            return
+
+        self.allLeave_accepted = Leave_All_Accepted(data=data)
+        self.allLeave_accepted.finish_box.connect(self.finish_msgbox)
+        self.allLeave_accepted.update_label.connect(Monitor.update_text)
+        self.allLeave_accepted.update_progress.connect(Monitor.update_progressbar)
+        self.allLeave_accepted.monitor_close.connect(Monitor.monitor_close_approve)
+        self.allLeave_accepted.monitor_open.connect(self.monitor_show)
+
+        self.allLeave_accepted.start()
+        self.monitor_show()
+
     def leave_declined(self):
         index = self.tableWidget_3.currentRow()
         if index == -1:
@@ -4900,6 +4960,34 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
 
+    def ot_all_accepted(self):
+        #QMessageBox.information(self, 'Info', 'Sorry, this function is under development, please wait for the next version.')
+        data = []
+        for i in range(self.tableWidget_2.rowCount()):
+            line = []
+            for j in range(self.tableWidget_2.columnCount()):
+                line.append(self.tableWidget_2.item(i, j).text())
+            data.append(line)
+
+        if not data:
+            QMessageBox.warning(self, 'Warning', 'No unconfirmed OT request remains on the table!')
+            return
+
+        a = QMessageBox.question(self, 'Confirmation',
+                                 f'Are you sure to accept all of the OT requests?')
+        if a == QMessageBox.No:
+            return
+
+        self.allOt_accepted = Ot_All_Accepted(data=data)
+        self.allOt_accepted.finish_box.connect(self.finish_msgbox)
+        self.allOt_accepted.update_label.connect(Monitor.update_text)
+        self.allOt_accepted.update_progress.connect(Monitor.update_progressbar)
+        self.allOt_accepted.monitor_close.connect(Monitor.monitor_close_approve)
+        self.allOt_accepted.monitor_open.connect(self.monitor_show)
+
+        self.allOt_accepted.start()
+        self.monitor_show()
+
     def ot_declined(self):
         index = self.tableWidget_2.currentRow()
         if index == -1:
@@ -5044,6 +5132,35 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                                               mode='late')
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
+
+    def late_all_accepted(self):
+        #QMessageBox.information(self, 'Info', 'Sorry, this function is under development, please wait for the next version.')
+        data = []
+        for i in range(self.tableWidget_4.rowCount()):
+            line = []
+            for j in range(self.tableWidget_4.columnCount()):
+                line.append(self.tableWidget_4.item(i, j).text())
+            data.append(line)
+
+        if not data:
+            QMessageBox.warning(self, 'Warning', 'No unconfirmed late clock-in request remains on the table!')
+            return
+
+        a = QMessageBox.question(self, 'Confirmation',
+                                 f'Are you sure to accept all of the late clock-in requests?')
+        if a == QMessageBox.No:
+            return
+
+        self.allLate_accepted = Late_All_Accepted(data=data)
+        self.allLate_accepted.finish_box.connect(self.finish_msgbox)
+        self.allLate_accepted.update_label.connect(Monitor.update_text)
+        self.allLate_accepted.update_progress.connect(Monitor.update_progressbar)
+        self.allLate_accepted.monitor_close.connect(Monitor.monitor_close_approve)
+        self.allLate_accepted.monitor_open.connect(self.monitor_show)
+
+        self.allLate_accepted.start()
+        self.monitor_show()
+
 
     def late_declined(self):
         index = self.tableWidget_4.currentRow()
@@ -5234,6 +5351,35 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
 
+    def forget_all_accepted(self):
+        #QMessageBox.information(self, 'Info', 'Sorry, this function is under development, please wait for the next version.')
+        data = []
+        for i in range(self.tableWidget_8.rowCount()):
+            line = []
+            for j in range(self.tableWidget_8.columnCount()):
+                line.append(self.tableWidget_8.item(i, j).text())
+            data.append(line)
+
+        if not data:
+            QMessageBox.warning(self, 'Warning', 'No unconfirmed time record adding request remains on the table!')
+            return
+
+        a = QMessageBox.question(self, 'Confirmation',
+                                 f'Are you sure to accept all of the time record adding requests?')
+        if a == QMessageBox.No:
+            return
+
+        self.allForget_accepted = Forget_All_Accepted(data=data)
+        self.allForget_accepted.finish_box.connect(self.finish_msgbox)
+        self.allForget_accepted.update_label.connect(Monitor.update_text)
+        self.allForget_accepted.update_progress.connect(Monitor.update_progressbar)
+        self.allForget_accepted.monitor_close.connect(Monitor.monitor_close_approve)
+        self.allForget_accepted.monitor_open.connect(self.monitor_show)
+
+        self.allForget_accepted.start()
+        self.monitor_show()
+
+
     def forget_declined(self):
         index = self.tableWidget_8.currentRow()
         if index == -1:
@@ -5281,6 +5427,14 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                                           mode='forget')
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been declined!')
+
+    def monitor_show(self):
+        Monitor.show()
+        Monitor.initializing()
+        self.setEnabled(False)
+
+    def finish_msgbox(self, title, text):
+        QMessageBox.information(self, title, text)
 
     def quit(self):
         ApprovePanel.close()
@@ -5909,6 +6063,11 @@ class StaffManage(QMainWindow, Ui_StaffManage):
         self.pushButton_3.clicked.connect(self.import_excel)
         self.pushButton_4.clicked.connect(self.quit)
 
+        self.pushButton.clicked.connect(self.export_selected_rows)
+        self.pushButton_5.clicked.connect(self.import_partial_rows)
+
+        #self.tableWidget.itemSelectionChanged.connect(self.on_selection)
+
     def show_on_table(self):
         self.tableWidget.clearContents()
         self.tableWidget.setRowCount(20)
@@ -5938,6 +6097,104 @@ class StaffManage(QMainWindow, Ui_StaffManage):
                 col += 1
         self.cursor.close()
 
+    def on_selection(self):
+        selected_rows = [index.row() for index in self.tableWidget.selectionModel().selectedRows()]
+        #print("Selected rows:", selected_rows)
+
+        data = []
+        for row in selected_rows:
+            line = []
+            for col in range(self.tableWidget.columnCount()):
+                item = self.tableWidget.item(row, col)
+                line.append(item.text())
+                #print(f"Row {row + 1}, Col {col + 1}: {item.text()}")
+            data.append(line)
+
+        #print(data)
+        return data
+
+    def export_selected_rows(self):
+        data = self.on_selection()
+        if not data:
+            QMessageBox.warning(self, 'warning', 'Please select at least one row before click this button!')
+            return
+
+        a = QFileDialog.getSaveFileName(self,
+                                        'Please select the excel file path.',
+                                        f'./Staff Information(Selected Rows Only)',
+                                        'Excel Files (*.xlsx);;All Files (*)')
+        if a[0] == '':
+            return
+
+        wb = xl.Workbook()
+        ws = wb.active
+        headers = ['ID', 'NAME', 'POSITION', 'DIVISION', 'EMAIL', 'ANNUAL LEAVE', 'SICK LEAVE', 'PERSONAL LEAVE',
+                   'HOMETOWN TRAVEL', 'REMARKS', 'CONTRACT OR NOT']
+        ws.append(headers)
+        for each_line in data:
+            ws.append(each_line)
+
+        try:
+            wb.save(filename=a[0])
+        except:
+            QMessageBox.critical(self, 'Error', 'Please close the excel file with the same name first!')
+            wb.close()
+            return
+        wb.close()
+        QMessageBox.information(self, 'Info', 'Excel file has been created successfully!')
+
+    def import_partial_rows(self):
+        a = QFileDialog.getOpenFileName(self,
+                                        'Please select the source excel file.',
+                                        '',
+                                        'Excel Files (*.xlsx);;All Files (*)')
+
+        if a[0] == "":
+            return
+        wb = xl.load_workbook(a[0])
+        ws = wb.active
+        if ws.cell(row=1, column=1).value.strip() != 'ID' \
+                or ws.cell(row=1, column=2).value.strip() != 'NAME' \
+                or ws.cell(row=1, column=3).value.strip() != 'POSITION' \
+                or ws.cell(row=1, column=4).value.strip() != 'DIVISION' \
+                or ws.cell(row=1, column=5).value.strip() != 'EMAIL' \
+                or ws.cell(row=1, column=6).value.strip() != 'ANNUAL LEAVE' \
+                or ws.cell(row=1, column=7).value.strip() != 'SICK LEAVE' \
+                or ws.cell(row=1, column=8).value.strip() != 'PERSONAL LEAVE' \
+                or ws.cell(row=1, column=9).value.strip() != 'HOMETOWN TRAVEL' \
+                or ws.cell(row=1, column=10).value.strip() != 'REMARKS' \
+                or ws.cell(row=1, column=11).value.strip() != 'CONTRACT OR NOT':  # ------Updated on 9/11/2022
+            QMessageBox.critical(self, 'Wrong File Format!', 'Wrong Format! Please select the right source file!')
+            return
+
+        data = []
+        for i in range(2, ws.max_row + 1):
+            line = []
+            for j in range(1, ws.max_column + 1):
+                line.append(str(ws.cell(row=i, column=j).value).strip())
+            data.append(line)
+
+        wb.close()
+
+        cur = DB.cursor()
+
+        for each in data:
+            SQL = """UPDATE akt_staff_ SET NAME=%s, POSITION=%s, DIVISION=%s, EMAIL=%s, AN_DAYS=%s, SICK_DAYS=%s, PERSONAL_DAYS=%s, HOME_TOWN=%s, REMARK=%s, CONTRACT_OR_NOT=%s WHERE ID=%s"""  #-------Updated on 9/11/2022
+            try:
+                cur.execute(SQL, (
+                each[1], each[2], each[3], each[4], each[5], each[6], each[7],each[8], each[9], each[10], each[0]))
+                DB.commit()
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                cur=DB.cursor()
+                cur.execute(SQL, (
+                    each[1], each[2], each[3], each[4], each[5], each[6], each[7], each[8], each[9], each[10], each[0]))
+                DB.commit()
+
+        self.show_on_table()
+        QMessageBox.information(self, 'Info', 'Staff management database has been updated successfully!')
+        cur.close()
+
     def import_excel(self):
         a = QFileDialog.getOpenFileName(self,
                                         'Please select the source excel file.',
@@ -5962,12 +6219,18 @@ class StaffManage(QMainWindow, Ui_StaffManage):
             QMessageBox.critical(self, 'Wrong File Format!', 'Wrong Format! Please select the right source file!')
             return
 
+        if ws.max_row < 25:
+            QMessageBox.critical(self, 'Wrong File Format!', 'Wrong Format! Please select the right source file!')
+            return
+
         data=[]
         for i in range(2, ws.max_row+1):
             line=[]
             for j in range(1, ws.max_column+1):
                 line.append(str(ws.cell(row=i, column=j).value).strip())
             data.append(line)
+
+        wb.close()
 
         cur = DB.cursor()
         SQL="""DELETE FROM akt_staff_ WHERE 1=1"""
@@ -6023,6 +6286,7 @@ class StaffManage(QMainWindow, Ui_StaffManage):
             wb.save(filename=a[0])
         except:
             QMessageBox.critical(self, 'Error', 'Please close the excel file with the same name first!')
+            wb.close()
             return
         wb.close()
         QMessageBox.information(self, 'Info', 'Excel file has been created successfully!')
@@ -6587,6 +6851,10 @@ class Monitor(QWidget, Ui_Monitor):
         self.destroy()
         loginWindow.show()
 
+    def monitor_close_approve(self):
+        self.destroy()
+        ApprovePanel.setEnabled(True)
+
     def close_monitor(self):
         self.destroy()
         OTSheet.show()
@@ -6904,18 +7172,40 @@ class Exp_OT_Sheet(QThread):
                             leave_type = 'AM ' + leave_type
                         else:
                             leave_type = 'PM ' + leave_type
-                        ws[f'V{i}'].value = leave_type
+
+                        #MODIFIED ON 12/3/2024 --------START
+                        if ws[f'V{i}'].value:
+                            if ws[f'W{i}'].value:
+                                ws[f'X{i}'].value = leave_type
+                            else:
+                                ws[f'W{i}'].value = leave_type
+                        else:
+                            ws[f'V{i}'].value = leave_type
                         ws[f'V{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
+                        ws[f'W{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
+                        ws[f'X{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
                         break
+                        # MODIFIED ON 12/3/2024 --------END
 
                 ws[f'B{i}'].value = each_line[0]
                 ws[f'B{i}'].number_format = '[$-409]dd-mmm-yy;@'
                 ws[f'C{i}'].value = weekday_dict[each_line[1]]
                 if each_line[2] == 'NO':
                     ws[f'C{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
+
+                # MODIFIED ON 12/3/2024 --------START
                 if each_line[3] != 'None':
-                    ws[f'V{i}'].value = each_line[3]
+                    if ws[f'V{i}']:
+                        if ws[f'W{i}'].value:
+                            ws[f'X{i}'].value = each_line[3]
+                        else:
+                            ws[f'W{i}'].value = each_line[3]
+                    else:
+                        ws[f'V{i}'].value = each_line[3]
                     ws[f'V{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
+                    ws[f'W{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
+                    ws[f'X{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
+                # MODIFIED ON 12/3/2024 --------END
 
             excel_start_row = 8
             for data_line in time_card:
@@ -6957,13 +7247,13 @@ class Exp_OT_Sheet(QThread):
                             ws[f'I{i}'].value = data_line[7].time()
                         except AttributeError:
                             pass
-                        #--------------------------------V1.6BETA UPDATE(START)
-                        if 'PM ' in str(ws[f'V{i}'].value):
+                        #--------------------------------V1.6BETA UPDATE(START)  ------UPDATED ON 12/3/2024--START
+                        if 'PM ' in str(ws[f'V{i}'].value) or 'PM ' in str(ws[f'W{i}'].value) or 'PM ' in str(ws[f'X{i}'].value):
                             if data_line[3] != None:
                                 if int(data_line[3].strftime('%H%M')) > 1130:
                                     data_line[3]=datetime.datetime(data_line[3].year, data_line[3].month, data_line[3].day, 11, 30)
 
-                        # --------------------------------V1.6BETA UPDATE(END)
+                        # --------------------------------V1.6BETA UPDATE(END) ------UPDATED ON 12/3/2024--END
                         try:
                             ws[f'O{i}'].value = data_line[3].time()
                         except AttributeError:
@@ -7038,23 +7328,33 @@ class Exp_OT_Sheet(QThread):
 
                         ws[f'S{i}'].value = ot_hour
 
-                        #--------------------------------UPDATE FOR V1.6BETA(START)
+                        #--------------------------------UPDATE FOR V1.6BETA(START) --------UPDATED ON 12/3/2024--START
                         if data_line[2].time() > datetime.time(8, 30, 59):
-                            if ws[f'V{i}'].value == None:
+                            if ws[f'V{i}'].value == None or ('AM' not in ws[f'V{i}'].value):
                                 #sql = "SELECT USER_ID, LATE_DT, CLOCKIN_TM FROM apply_late WHERE CURRENT_TO=9999 AND LATE_DT>%s AND LATE_DT<%s"
-                                ws[f'V{i}'].value = 'Late'
+                                if ws[f'V{i}'].value:
+                                    ws[f'W{i}'].value = 'Late'
+                                else:
+                                    ws[f'V{i}'].value = 'Late'
                                 ws[f'V{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11,
+                                                        color="FF0000")
+                                ws[f'W{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11,
                                                         color="FF0000")
                                 for each_apply in applylate_lst:
                                     #a=datetime.time(hour=each_apply[2].seconds//3600, minute=(each_apply[2].seconds%3600)//60, second=59)
                                     #print(a)
                                     if str(each_id)==each_apply[0] and each_apply[1]==data_line[2].date() and data_line[2].time()<=datetime.time(hour=each_apply[2].seconds//3600, minute=(each_apply[2].seconds%3600)//60, second=59):
-                                        ws[f'V{i}'].value = 'Approved late clockin'
+                                        if ws[f'V{i}'].value:
+                                            ws[f'W{i}'].value = 'Approved late clockin'
+                                        else:
+                                            ws[f'V{i}'].value = 'Approved late clockin'
                                         ws[f'V{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11,
+                                                                color="FF0000")
+                                        ws[f'W{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11,
                                                                 color="FF0000")
                                         break
 
-                        # --------------------------------UPDATE FOR V1.6BETA(END)
+                        # --------------------------------UPDATE FOR V1.6BETA(END)------UPDATED ON 12/3/2024--END
 
                         if str(contract_or_not).strip().upper() == 'YES' or calculate_result[2] != '0':
                             pass
@@ -7071,7 +7371,7 @@ class Exp_OT_Sheet(QThread):
                             if final_hour_exc >= 10.5:
                                 ws[f'T{i}'].value = 1
 
-                            if (data_line[2].time() < datetime.time(8, 31, 0) or ws[f'V{i}'].value == 'Approved late clockin') and final_hour_exc >= 8:
+                            if (data_line[2].time() < datetime.time(8, 31, 0) or (ws[f'V{i}'].value == 'Approved late clockin' or ws[f'W{i}'].value == 'Approved late clockin')) and final_hour_exc >= 8:#UPDATED ON 12/3/2024
                                 ws[f'U{i}'].value = 1
 
                         excel_start_row = i + 1
@@ -7099,6 +7399,577 @@ class Exp_OT_Sheet(QThread):
         self.monitor_close.emit()
         self.finish_box.emit('Info', 'OT Sheet has been created successfully!')
 
+
+class Forget_All_Accepted(QThread):
+    monitor_close = pyqtSignal()
+    finish_box = pyqtSignal(str, str)
+    update_label = pyqtSignal(str)
+    update_progress = pyqtSignal(int)
+    monitor_open = pyqtSignal()
+    def __init__(self, data):
+        super(Forget_All_Accepted, self).__init__()
+        self.data = data
+
+    def run(self):
+        Monitor.progressBar.setMaximum(len(self.data))
+        counter = 0
+        for data_line in self.data:
+            counter += 1
+            self.update_progress.emit(counter)
+
+            request_id = data_line[0]
+
+            self.update_label.emit(
+                f'Approving the time record adding request of Request ID: {request_id}, and sending the email...')
+
+            self.cursor_approve = DB.cursor()
+            SQL = """SELECT CURRENT_PO, USER_ID FROM forget_record WHERE SERIAL=%s"""
+            try:
+                self.cursor_approve.execute(SQL, (request_id))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_approve = DB.cursor()
+                self.cursor_approve.execute(SQL, (request_id))
+
+            res_po = self.cursor_approve.fetchall()
+            current_po = res_po[0][0]
+            staff_id = res_po[0][1]
+
+            SQL = """SELECT LEADER_ID, DM_ID FROM team_stru WHERE ID=%s"""
+            self.cursor_approve.execute(SQL, (staff_id))
+            res = self.cursor_approve.fetchall()
+
+            if current_po == 'LEADER':
+                if res[0][1] != 0:
+                    if res[0][0] == res[0][1]:
+                        current_to = 9999
+                        current_po = 'HR'
+                    else:
+                        current_to = res[0][1]
+                        current_po = 'DM'
+                else:
+                    current_to = 9999
+                    current_po = 'HR'
+            else:
+                current_to = 9999
+                current_po = 'HR'
+
+            if current_po == 'DM':
+                SQL = """UPDATE forget_record SET LEADER=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, ('OK', current_to, current_po, request_id))
+
+            else:
+                SQL = """UPDATE forget_record SET LEADER=%s, DM=%s, HR=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, ('OK', 'OK', 'OK', current_to, current_po, request_id))
+
+            DB.commit()
+            self.cursor_approve.close()
+
+            if current_to == 9999:
+                SQL = """SELECT USER_ID, CLOCK_IN, CLOCK_OUT, OUT_1, IN_1, OUT_2, IN_2 FROM forget_record WHERE SERIAL=%s"""
+                self.cursor_migrant = DB.cursor()
+                self.cursor_migrant.execute(SQL, (request_id))
+                data = self.cursor_migrant.fetchall()
+                user_id = data[0][0]
+                clockin = data[0][1]
+                clockout = data[0][2]
+                out1 = data[0][3]
+                in1 = data[0][4]
+                out2 = data[0][5]
+                in2 = data[0][6]
+
+                try:
+                    serial_timecard = str(user_id) + clockin.strftime('%Y%m%d')
+                except AttributeError:
+                    serial_timecard = str(user_id) + clockout.strftime('%Y%m%d')
+
+                if clockin == None:
+                    SQL = """SELECT * FROM time_card WHERE SERIAL=%s"""
+                    self.cursor_migrant.execute(SQL, (serial_timecard))
+                    data = self.cursor_migrant.fetchall()
+                    if data != ():
+                        SQL = """UPDATE time_card SET CLOCK_OUT=%s WHERE SERIAL=%s"""
+                        self.cursor_migrant.execute(SQL, (clockout, serial_timecard))
+                        DB.commit()
+                    else:
+                        SQL = """INSERT INTO time_card (SERIAL,USER_ID,CLOCK_OUT) VALUES (%s,%s,%s)"""
+                        self.cursor_migrant.execute(SQL, (serial_timecard, user_id, clockout))
+                        DB.commit()
+
+                elif clockout == None:
+                    SQL = """SELECT * FROM time_card WHERE SERIAL=%s"""
+                    self.cursor_migrant.execute(SQL, (serial_timecard))
+                    data = self.cursor_migrant.fetchall()
+                    if data != ():
+                        SQL = """UPDATE time_card SET CLOCK_IN=%s WHERE SERIAL=%s"""
+                        self.cursor_migrant.execute(SQL, (clockin, serial_timecard))
+                        DB.commit()
+                    else:
+                        SQL = """INSERT INTO time_card (SERIAL,USER_ID,CLOCK_IN) VALUES (%s,%s,%s)"""
+                        self.cursor_migrant.execute(SQL, (serial_timecard, user_id, clockin))
+                        DB.commit()
+
+                else:
+                    SQL = """SELECT * FROM time_card WHERE SERIAL=%s"""
+                    self.cursor_migrant.execute(SQL, (serial_timecard))
+                    data = self.cursor_migrant.fetchall()
+                    if data != ():
+                        SQL = """DELETE FROM time_card WHERE SERIAL=%s"""
+                        self.cursor_migrant.execute(SQL, (serial_timecard))
+                        DB.commit()
+
+                    SQL = """INSERT INTO time_card (SERIAL, USER_ID, CLOCK_IN, CLOCK_OUT, OUT_1, IN_1, OUT_2, IN_2) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"""
+                    self.cursor_migrant.execute(SQL,
+                                                (serial_timecard, user_id, clockin, clockout, out1, in1, out2, in2))
+                    DB.commit()
+
+                self.cursor_migrant.close()
+
+            # Mail sending==============================================
+            info_lst = query_email(id=current_to)
+            info_lst2 = query_email(id=staff_id)
+            if info_lst == -1:
+                pass
+            else:
+                mailsender.send_request_mail(email_add=info_lst[1],
+                                             receiver_name=info_lst[0],
+                                             sender_name=info_lst2[0],
+                                             mode='forget')
+            # ===========================================================
+            # Mail sending 2==============================================
+            if current_to == 9999:
+                if info_lst2 == -1:
+                    pass
+                else:
+                    mailsender.send_approved_mail(email_add=info_lst2[1],
+                                                  receiver_name=info_lst2[0],
+                                                  mode='forget')
+            # ===========================================================
+        #QMessageBox.information(self, 'Info', 'Request has been accepted!')
+        ApprovePanel.show_forget_contents()
+        # ApprovePanel.show_forget_panel()
+        self.monitor_close.emit()
+        self.finish_box.emit('Info', 'All of the time record adding requests has been accepted!')
+
+
+class Late_All_Accepted(QThread):
+    monitor_close = pyqtSignal()
+    finish_box = pyqtSignal(str, str)
+    update_label = pyqtSignal(str)
+    update_progress = pyqtSignal(int)
+    monitor_open = pyqtSignal()
+    def __init__(self, data):
+        super(Late_All_Accepted, self).__init__()
+        self.data = data
+
+    def run(self):
+        Monitor.progressBar.setMaximum(len(self.data))
+        counter = 0
+        for data_line in self.data:
+            counter += 1
+            self.update_progress.emit(counter)
+
+            request_id = data_line[0]
+
+            self.update_label.emit(f'Approving the late clock-in request of Request ID: {request_id}, and sending the email...')
+
+            self.cursor_approve = DB.cursor()
+            SQL = """SELECT CURRENT_PO, USER_ID FROM apply_late WHERE SERIAL=%s"""
+            try:
+                self.cursor_approve.execute(SQL, (request_id))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_approve = DB.cursor()
+                self.cursor_approve.execute(SQL, (request_id))
+
+            res_po = self.cursor_approve.fetchall()
+            current_po = res_po[0][0]
+            staff_id = res_po[0][1]
+
+            SQL = """SELECT LEADER_ID, DM_ID FROM team_stru WHERE ID=%s"""
+            self.cursor_approve.execute(SQL, (staff_id))
+            res = self.cursor_approve.fetchall()
+
+            if current_po == 'LEADER':
+                if res[0][1] != 0:  # 如果存在DM
+                    if res[0][0] == res[0][1]:  # 如果LEADER跟DM是同一人
+                        # current_to = 9999
+                        # current_po = 'HR'
+                        current_to = 8888
+                        current_po = 'HR'
+
+                    else:  # 如果LEADER跟DM不是同一人
+                        current_to = res[0][1]
+                        current_po = 'DM'
+
+                else:  # 如果不存在DM
+                    # current_to = 9999
+                    # current_po = 'HR'
+                    current_to = 8888
+                    current_po = 'HR'
+
+            elif current_po == 'DM':
+                current_to = 8888
+                current_po = 'HR'
+
+            else:
+                current_to = 9999
+                current_po = 'PA'
+
+            if current_po == 'DM':
+                SQL = """UPDATE apply_late SET LEADER=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, ('OK', current_to, current_po, request_id))
+            elif current_po == 'HR':
+                SQL = """UPDATE apply_late SET LEADER=%s, DM=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, ('OK', 'OK', current_to, current_po, request_id))
+            else:
+                SQL = """UPDATE apply_late SET LEADER=%s, DM=%s, HR=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, ('OK', 'OK', 'OK', current_to, current_po, request_id))
+
+            DB.commit()
+            self.cursor_approve.close()
+
+            # Mail sending==============================================
+            info_lst = query_email(id=current_to)
+            info_lst2 = query_email(id=staff_id)
+            if info_lst == -1:
+                pass
+            else:
+                mailsender.send_request_mail(email_add=info_lst[1],
+                                             receiver_name=info_lst[0],
+                                             sender_name=info_lst2[0],
+                                             mode='late')
+            # ===========================================================
+            # Mail sending 2==============================================
+            if current_to == 9999:
+                if info_lst2 == -1:
+                    pass
+                else:
+                    mailsender.send_approved_mail(email_add=info_lst2[1],
+                                                  receiver_name=info_lst2[0],
+                                                  mode='late')
+            # ===========================================================
+        #QMessageBox.information(self, 'Info', 'Request has been accepted!')
+        ApprovePanel.show_late_contents()
+        #ApprovePanel.show_late_panel()
+        self.monitor_close.emit()
+        self.finish_box.emit('Info', 'All of the late clock-in requests has been accepted!')
+
+class Ot_All_Accepted(QThread):
+    monitor_close = pyqtSignal()
+    finish_box = pyqtSignal(str, str)
+    update_label = pyqtSignal(str)
+    update_progress = pyqtSignal(int)
+    monitor_open = pyqtSignal()
+    def __init__(self, data):
+        super(Ot_All_Accepted, self).__init__()
+        self.data = data
+
+    def run(self):
+        Monitor.progressBar.setMaximum(len(self.data))
+        counter = 0
+        for data_line in self.data:
+            counter += 1
+            self.update_progress.emit(counter)
+
+            request_id = data_line[0]
+
+            self.update_label.emit(f'Approving the OT request of Request ID: {request_id}, and sending the email...')
+
+            self.cursor_approve = DB.cursor()
+            SQL = """SELECT CURRENT_PO, USER_ID FROM ot_request WHERE SERIAL=%s"""
+            try:
+                self.cursor_approve.execute(SQL, (request_id))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_approve = DB.cursor()
+                self.cursor_approve.execute(SQL, (request_id))
+
+            res_po = self.cursor_approve.fetchall()
+            current_po = res_po[0][0]
+            staff_id = res_po[0][1]
+
+            SQL = """SELECT LEADER_ID, DM_ID, MD_ID FROM team_stru WHERE ID=%s"""
+            self.cursor_approve.execute(SQL, (staff_id))
+            res = self.cursor_approve.fetchall()
+
+            if current_po == 'LEADER':
+                if res[0][1] != 0:  # 如果存在DM
+                    if res[0][0] == res[0][1]:  # 如果LEADER和DM是同一人
+                        if res[0][1] == res[0][2]:  # 如果DM和MD是同一人
+                            # current_to = 9999
+                            # current_po = 'HR'
+                            current_to = 8888
+                            current_po = 'HR'
+                        else:  # 如果DM和MD不是同一人
+                            # current_to = res[0][2]
+                            # current_po = 'MD'
+                            current_to = 8888
+                            current_po = 'HR'
+                    else:  # 如果LEADER和DM不是同一人
+                        current_to = res[0][1]
+                        current_po = 'DM'
+                else:  # 如果不存在DM
+                    # current_to = res[0][2]
+                    # current_po = 'MD'
+                    current_to = 8888
+                    current_po = 'HR'
+            elif current_po == 'DM':
+                if res[0][2] == res[0][1]:  # 如果DM和MD是同一人
+                    # current_to = 9999
+                    # current_po = 'HR'
+                    current_to = 8888
+                    current_po = 'HR'
+                else:  # 如果DM和MD不是同一人
+                    # current_to = res[0][2]
+                    # current_po = 'MD'
+                    current_to = 8888
+                    current_po = 'HR'
+
+            elif current_po == 'HR':
+                if res[0][2] == res[0][1]:  # 如果DM和MD是同一人
+                    current_to = 9999
+                    current_po = 'PA'
+                else:  # 如果DM和MD不是同一人
+                    current_to = res[0][2]
+                    current_po = 'MD'
+
+            else:
+                current_to = 9999
+                current_po = 'PA'
+
+            if current_po == 'DM':
+                SQL = """UPDATE ot_request SET LEADER=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, current_to, current_po, request_id))
+            elif current_po == 'HR':
+                SQL = """UPDATE ot_request SET LEADER=%s, DM=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, 1, current_to, current_po, request_id))
+            elif current_po == 'MD':
+                SQL = """UPDATE ot_request SET LEADER=%s, DM=%s, HR=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, 1, 1, current_to, current_po, request_id))
+            else:
+                SQL = """UPDATE ot_request SET LEADER=%s, DM=%s, HR=%s, MD=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, 1, 1, 1, current_to, current_po, request_id))
+
+            DB.commit()
+            self.cursor_approve.close()
+
+            # Mail sending==============================================
+            info_lst = query_email(id=current_to)
+            info_lst2 = query_email(id=staff_id)
+            if info_lst == -1:
+                pass
+            else:
+                mailsender.send_request_mail(email_add=info_lst[1],
+                                             receiver_name=info_lst[0],
+                                             sender_name=info_lst2[0],
+                                             mode='ot')
+            # ===========================================================
+            # Mail sending 2==============================================
+            if current_to == 9999:
+                if info_lst2 == -1:
+                    pass
+                else:
+                    mailsender.send_approved_mail(email_add=info_lst2[1],
+                                                  receiver_name=info_lst2[0],
+                                                  mode='ot')
+            # ===========================================================
+        #QMessageBox.information(self, 'Info', 'Request has been accepted!')
+        ApprovePanel.show_ot_contents()
+        # ApprovePanel.show_ot_panel()
+        self.monitor_close.emit()
+        self.finish_box.emit('Info', 'All of the OT requests has been accepted!')
+
+class Leave_All_Accepted(QThread):
+    monitor_close=pyqtSignal()
+    finish_box=pyqtSignal(str, str)
+    update_label=pyqtSignal(str)
+    update_progress=pyqtSignal(int)
+    monitor_open=pyqtSignal()
+    def __init__(self, data):
+        super(Leave_All_Accepted, self).__init__()
+        self.data = data
+
+    def run(self):
+        Monitor.progressBar.setMaximum(len(self.data))
+        counter = 0
+        for data_line in self.data:
+            counter += 1
+            self.update_progress.emit(counter)
+            request_id = data_line[0]
+            staff_id_ = data_line[2]
+            type_ = data_line[3]
+            during_ = data_line[9]
+
+            self.update_label.emit(f'Approving the leave request of Request ID: {request_id}, and sending the email...')
+
+            self.cursor_approve = DB.cursor()
+            SQL = """SELECT CURRENT_PO, USER_ID FROM leave_request WHERE SERIAL=%s"""
+            try:
+                self.cursor_approve.execute(SQL, (request_id))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_approve = DB.cursor()
+                self.cursor_approve.execute(SQL, (request_id))
+
+            res_po = self.cursor_approve.fetchall()
+            current_po = res_po[0][0]
+            staff_id = res_po[0][1]
+
+            SQL = """SELECT LEADER_ID, DM_ID, MD_ID FROM team_stru WHERE ID=%s"""
+            self.cursor_approve.execute(SQL, (staff_id))
+            res = self.cursor_approve.fetchall()
+
+            if current_po == 'LEADER':
+                if res[0][1] != 0:  # 如果存在DM
+                    if res[0][0] == res[0][1]:  # 如果LEADER和DM是同一个人的话
+                        if res[0][1] == res[0][2]:  # 如果DM和MD又是同一个人的话
+                            # current_to = 9999
+                            # current_po = 'HR'
+                            current_to = 8888
+                            current_po = 'HR'
+                        else:  # 如果LEADER和DM是同一个人，但DM和MD不是同一个人
+                            # current_to = res[0][2]
+                            # current_po = 'MD'
+                            current_to = 8888
+                            current_po = 'HR'
+
+                    else:  # 如果LEADER和DM不是同一个人
+                        current_to = res[0][1]
+                        current_po = 'DM'
+                else:  # 如果不存在DM
+                    # current_to = res[0][2]
+                    # current_po = 'MD'
+                    current_to = 8888
+                    current_po = 'HR'
+
+            elif current_po == 'DM':
+                if res[0][2] == res[0][1]:  # 如果DM和MD是同一人
+                    # current_to = 9999
+                    # current_po = 'HR'
+                    current_to = 8888
+                    current_po = 'HR'
+                else:  # 如果DM和MD不是同一人
+                    # current_to = res[0][2]
+                    # current_po = 'MD'
+                    current_to = 8888
+                    current_po = 'HR'
+
+            elif current_po == 'HR':
+                if res[0][2] == res[0][1]:  # 如果DM和MD是同一人
+                    current_to = 9999
+                    current_po = 'PA'
+                else:  # 如果DM和MD不是同一人
+                    current_to = res[0][2]
+                    current_po = 'MD'
+
+            else:
+                current_to = 9999
+                current_po = 'PA'
+
+            if current_po == 'DM':
+                SQL = """UPDATE leave_request SET LEADER=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, current_to, current_po, request_id))
+
+            elif current_po == 'HR':
+                SQL = """UPDATE leave_request SET LEADER=%s, DM=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, 1, current_to, current_po, request_id))
+
+            elif current_po == 'MD':
+                SQL = """UPDATE leave_request SET LEADER=%s, DM=%s, HR=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, 1, 1, current_to, current_po, request_id))
+            else:
+                SQL = """UPDATE leave_request SET LEADER=%s, DM=%s, HR=%s, MD=%s, CURRENT_TO=%s, CURRENT_PO=%s WHERE SERIAL=%s"""
+                self.cursor_approve.execute(SQL, (1, 1, 1, 1, current_to, current_po, request_id))
+
+            DB.commit()
+
+            self.cursor_approve.close()
+
+            # Mail sending==============================================
+            info_lst = query_email(id=current_to)
+            info_lst2 = query_email(id=staff_id)
+            if info_lst == -1:
+                pass
+            else:
+                mailsender.send_request_mail(email_add=info_lst[1],
+                                             receiver_name=info_lst[0],
+                                             sender_name=info_lst2[0],
+                                             mode='leave')
+            # ===========================================================
+            # Mail sending 2==============================================
+            if current_to == 9999:
+
+                if type_ == 'Annual leave':
+                    self.cursor_calc = DB.cursor()
+                    SQL = """SELECT AN_DAYS FROM akt_staff_ WHERE ID=%s"""
+                    self.cursor_calc.execute(SQL, (staff_id_))
+                    res = self.cursor_calc.fetchall()
+                    if res == ():
+                        pass
+                    else:
+                        an_days = res[0][0]
+                        an_days -= during_
+                        SQL = """UPDATE akt_staff_ SET AN_DAYS=%s WHERE ID=%s"""
+                        self.cursor_calc.execute(SQL, (an_days, staff_id_))
+                        DB.commit()
+                    self.cursor_calc.close()
+                elif type_ == 'Sick leave':
+                    self.cursor_calc = DB.cursor()
+                    SQL = """SELECT SICK_DAYS FROM akt_staff_ WHERE ID=%s"""
+                    self.cursor_calc.execute(SQL, (staff_id_))
+                    res = self.cursor_calc.fetchall()
+                    if res == ():
+                        pass
+                    else:
+                        sick_days = res[0][0]
+                        sick_days -= during_
+                        SQL = """UPDATE akt_staff_ SET SICK_DAYS=%s WHERE ID=%s"""
+                        self.cursor_calc.execute(SQL, (sick_days, staff_id_))
+                        DB.commit()
+                    self.cursor_calc.close()
+                elif type_ == 'Hometown':
+                    self.cursor_calc = DB.cursor()
+                    SQL = """SELECT HOME_TOWN FROM akt_staff_ WHERE ID=%s"""
+                    self.cursor_calc.execute(SQL, (staff_id_))
+                    res = self.cursor_calc.fetchall()
+                    if res == ():
+                        pass
+                    else:
+                        home_days = res[0][0]
+                        home_days -= 1
+                        SQL = """UPDATE akt_staff_ SET HOME_TOWN=%s WHERE ID=%s"""
+                        self.cursor_calc.execute(SQL, (home_days, staff_id_))
+                        DB.commit()
+                    self.cursor_calc.close()
+                elif type_ == 'Personal leave':
+                    self.cursor_calc = DB.cursor()
+                    SQL = """SELECT PERSONAL_DAYS FROM akt_staff_ WHERE ID=%s"""
+                    self.cursor_calc.execute(SQL, (staff_id_))
+                    res = self.cursor_calc.fetchall()
+                    if res == ():
+                        pass
+                    else:
+                        personal_days = res[0][0]
+                        personal_days -= during_
+                        SQL = """UPDATE akt_staff_ SET PERSONAL_DAYS=%s WHERE ID=%s"""
+                        self.cursor_calc.execute(SQL, (personal_days, staff_id_))
+                        DB.commit()
+                    self.cursor_calc.close()
+
+                if info_lst2 == -1:
+                    pass
+                else:
+                    mailsender.send_approved_mail(email_add=info_lst2[1],
+                                                  receiver_name=info_lst2[0],
+                                                  mode='leave')
+            # ===========================================================
+
+        ApprovePanel.show_leave_contents()
+        # ApprovePanel.show_leave_panel()
+        #QMessageBox.information(self, 'Info', 'All of the leave requests has been accepted!')
+        self.monitor_close.emit()
+        self.finish_box.emit('Info', 'All of the leave requests has been accepted!')
 
 
 def calculate_worktime(data_line):
@@ -7502,7 +8373,7 @@ def WriteUpdateCMD(new_name, old_name):
 if __name__ == '__main__':
     DB = None
     ID = -1
-    CURRENT_VER=2.6
+    CURRENT_VER=2.7
     HR_MODE = 0
 
     app = QApplication(sys.argv)

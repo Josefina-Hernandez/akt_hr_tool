@@ -626,7 +626,7 @@ QTextEdit:focus
      <widget class="QPushButton" name="pushButton_2">
       <property name="geometry">
        <rect>
-        <x>380</x>
+        <x>540</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -687,7 +687,7 @@ QPushButton:pressed
      <widget class="QPushButton" name="pushButton_5">
       <property name="geometry">
        <rect>
-        <x>740</x>
+        <x>780</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -741,6 +741,67 @@ QPushButton:pressed
       </property>
       <property name="text">
        <string>DECLINE</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pushButton_7">
+      <property name="geometry">
+       <rect>
+        <x>300</x>
+        <y>540</y>
+        <width>220</width>
+        <height>40</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <family>Microsoft Yahei</family>
+        <pointsize>13</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QPushButton
+
+{
+    /*字体为微软雅黑*/
+    font-family:Microsoft Yahei;
+    /*字体大小为20点*/
+    font-size:13pt;
+    /*字体颜色为白色*/    
+    color:white;
+    /*背景颜色*/  
+    background-color:rgb(21, 199, 1);
+    /*边框圆角半径为8像素*/ 
+    border-radius:10px;
+
+}
+
+/*按钮停留态*/
+QPushButton:hover
+{
+    /*背景颜色*/  
+    background-color:rgb(21, 175, 0);
+    padding-left:-3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:-3px;
+	font-size:15pt;
+}
+
+/*按钮按下态*/
+QPushButton:pressed
+{
+    /*背景颜色*/  
+    background-color:rgb(0, 113, 0);
+    /*左内边距为3像素，让按下时字向右移动3像素*/  
+    padding-left:3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:3px;
+    font-size:13pt;
+}</string>
+      </property>
+      <property name="text">
+       <string>ACCEPT ALL</string>
       </property>
      </widget>
     </widget>
@@ -959,7 +1020,7 @@ QTextEdit:focus
      <widget class="QPushButton" name="pushButton">
       <property name="geometry">
        <rect>
-        <x>380</x>
+        <x>510</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -1296,7 +1357,7 @@ QPushButton:pressed
      <widget class="QPushButton" name="pushButton_4">
       <property name="geometry">
        <rect>
-        <x>740</x>
+        <x>750</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -1413,6 +1474,67 @@ QPushButton:pressed
       </property>
       <property name="lineWidth">
        <number>1</number>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pushButton_9">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>540</y>
+        <width>220</width>
+        <height>40</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <family>Microsoft Yahei</family>
+        <pointsize>13</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QPushButton
+
+{
+    /*字体为微软雅黑*/
+    font-family:Microsoft Yahei;
+    /*字体大小为20点*/
+    font-size:13pt;
+    /*字体颜色为白色*/    
+    color:white;
+    /*背景颜色*/  
+    background-color:rgb(21, 199, 1);
+    /*边框圆角半径为8像素*/ 
+    border-radius:10px;
+
+}
+
+/*按钮停留态*/
+QPushButton:hover
+{
+    /*背景颜色*/  
+    background-color:rgb(21, 175, 0);
+    padding-left:-3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:-3px;
+	font-size:15pt;
+}
+
+/*按钮按下态*/
+QPushButton:pressed
+{
+    /*背景颜色*/  
+    background-color:rgb(0, 113, 0);
+    /*左内边距为3像素，让按下时字向右移动3像素*/  
+    padding-left:3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:3px;
+    font-size:13pt;
+}</string>
+      </property>
+      <property name="text">
+       <string>ACCEPT ALL</string>
       </property>
      </widget>
     </widget>
@@ -1610,7 +1732,7 @@ QTextEdit:focus
      <widget class="QPushButton" name="pushButton_6">
       <property name="geometry">
        <rect>
-        <x>740</x>
+        <x>750</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -1697,7 +1819,7 @@ QPushButton:pressed
      <widget class="QPushButton" name="pushButton_3">
       <property name="geometry">
        <rect>
-        <x>380</x>
+        <x>510</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -1951,6 +2073,67 @@ QPushButton:pressed
        </property>
       </column>
      </widget>
+     <widget class="QPushButton" name="pushButton_10">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>540</y>
+        <width>220</width>
+        <height>40</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <family>Microsoft Yahei</family>
+        <pointsize>13</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QPushButton
+
+{
+    /*字体为微软雅黑*/
+    font-family:Microsoft Yahei;
+    /*字体大小为20点*/
+    font-size:13pt;
+    /*字体颜色为白色*/    
+    color:white;
+    /*背景颜色*/  
+    background-color:rgb(21, 199, 1);
+    /*边框圆角半径为8像素*/ 
+    border-radius:10px;
+
+}
+
+/*按钮停留态*/
+QPushButton:hover
+{
+    /*背景颜色*/  
+    background-color:rgb(21, 175, 0);
+    padding-left:-3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:-3px;
+	font-size:15pt;
+}
+
+/*按钮按下态*/
+QPushButton:pressed
+{
+    /*背景颜色*/  
+    background-color:rgb(0, 113, 0);
+    /*左内边距为3像素，让按下时字向右移动3像素*/  
+    padding-left:3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:3px;
+    font-size:13pt;
+}</string>
+      </property>
+      <property name="text">
+       <string>ACCEPT ALL</string>
+      </property>
+     </widget>
     </widget>
     <widget class="QWidget" name="tab_4">
      <attribute name="title">
@@ -2174,7 +2357,7 @@ QTextEdit:focus
      <widget class="QPushButton" name="pushButton_14">
       <property name="geometry">
        <rect>
-        <x>740</x>
+        <x>750</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -2482,7 +2665,7 @@ QPushButton:pressed
      <widget class="QPushButton" name="pushButton_15">
       <property name="geometry">
        <rect>
-        <x>380</x>
+        <x>510</x>
         <y>540</y>
         <width>220</width>
         <height>40</height>
@@ -2825,6 +3008,67 @@ QPushButton:pressed
       </property>
       <property name="text">
        <string>Out-2</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pushButton_11">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>540</y>
+        <width>220</width>
+        <height>40</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <family>Microsoft Yahei</family>
+        <pointsize>13</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QPushButton
+
+{
+    /*字体为微软雅黑*/
+    font-family:Microsoft Yahei;
+    /*字体大小为20点*/
+    font-size:13pt;
+    /*字体颜色为白色*/    
+    color:white;
+    /*背景颜色*/  
+    background-color:rgb(21, 199, 1);
+    /*边框圆角半径为8像素*/ 
+    border-radius:10px;
+
+}
+
+/*按钮停留态*/
+QPushButton:hover
+{
+    /*背景颜色*/  
+    background-color:rgb(21, 175, 0);
+    padding-left:-3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:-3px;
+	font-size:15pt;
+}
+
+/*按钮按下态*/
+QPushButton:pressed
+{
+    /*背景颜色*/  
+    background-color:rgb(0, 113, 0);
+    /*左内边距为3像素，让按下时字向右移动3像素*/  
+    padding-left:3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:3px;
+    font-size:13pt;
+}</string>
+      </property>
+      <property name="text">
+       <string>ACCEPT ALL</string>
       </property>
      </widget>
     </widget>

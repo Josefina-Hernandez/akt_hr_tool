@@ -96,7 +96,7 @@
 {
     font-family:Microsoft Yahei;
 
-    font-size:13pt;
+    font-size:12pt;
  
     color:white;
 
@@ -128,28 +128,12 @@ QPushButton:pressed
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
        <widget class="QPushButton" name="pushButton_3">
         <property name="styleSheet">
          <string notr="true">QPushButton
 {
     font-family:Microsoft Yahei;
-    font-size:13pt; 
+    font-size:12pt; 
     color:white;
     background-color:rgb(255, 170, 0);
     border-radius:10px;
@@ -172,6 +156,77 @@ QPushButton:pressed
         </property>
         <property name="text">
          <string>Import Excel List</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton">
+        <property name="styleSheet">
+         <string notr="true">QPushButton
+
+{
+    font-family:Microsoft Yahei;
+
+    font-size:12pt;
+ 
+    color:white;
+
+    background-color:rgb(21, 199, 1);
+
+    border-radius:10px;
+
+}
+
+QPushButton:hover
+{
+    background-color:rgb(21, 175, 0);
+    padding-left:-3px;
+    padding-top:-3px;
+
+}
+
+
+QPushButton:pressed
+{  
+    background-color:rgb(0, 113, 0);
+    padding-left:3px;
+    padding-top:3px;
+}</string>
+        </property>
+        <property name="text">
+         <string>Export Selected Rows</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_5">
+        <property name="styleSheet">
+         <string notr="true">QPushButton
+{
+    font-family:Microsoft Yahei;
+    font-size:12pt; 
+    color:white;
+    background-color:rgb(255, 170, 0);
+    border-radius:10px;
+}
+
+QPushButton:hover
+{
+    background-color:rgb(230, 153, 0);
+    padding-left:-3px;
+    padding-top:-3px;
+
+}
+
+QPushButton:pressed
+{
+    background-color:rgb(197, 128, 0);
+    padding-left:3px;
+    padding-top:3px;
+}</string>
+        </property>
+        <property name="text">
+         <string>Import Partial Rows</string>
         </property>
        </widget>
       </item>

@@ -44,6 +44,7 @@ class MailSender():
 
         th=threading.Thread(target=self.launching)
         th.start()
+        th.join()
         #self.yag_server.send(to=self.email_to, subject=self.email_title, contents=self.email_content)
         #self.yag_server.close()
 
@@ -86,6 +87,7 @@ class MailSender():
 
         th=threading.Thread(target=self.launching)
         th.start()
+        th.join()
 
     def send_declined_mail(self, email_add, receiver_name, mode):
         if mode=='leave':
@@ -126,8 +128,9 @@ class MailSender():
 
         th=threading.Thread(target=self.launching)
         th.start()
+        th.join()
 
     def launching(self):
         self.yag_server.send(to=self.email_to, subject=self.email_title, contents=self.email_content)
-        self.yag_server.close()
-        #print('Launched!!!!!')
+        #self.yag_server.close()
+        print('Launched!!!!!')

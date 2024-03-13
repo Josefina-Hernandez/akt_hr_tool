@@ -60,7 +60,7 @@ class Ui_StaffManage(object):
 "{\n"
 "    font-family:Microsoft Yahei;\n"
 "\n"
-"    font-size:13pt;\n"
+"    font-size:11pt;\n"
 " \n"
 "    color:white;\n"
 "\n"
@@ -87,13 +87,11 @@ class Ui_StaffManage(object):
 "}")
         self.pushButton_2.setObjectName("pushButton_2")
         self.horizontalLayout.addWidget(self.pushButton_2)
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem)
         self.pushButton_3 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_3.setStyleSheet("QPushButton\n"
 "{\n"
 "    font-family:Microsoft Yahei;\n"
-"    font-size:13pt; \n"
+"    font-size:11pt; \n"
 "    color:white;\n"
 "    background-color:rgb(255, 170, 0);\n"
 "    border-radius:10px;\n"
@@ -115,8 +113,67 @@ class Ui_StaffManage(object):
 "}")
         self.pushButton_3.setObjectName("pushButton_3")
         self.horizontalLayout.addWidget(self.pushButton_3)
-        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem1)
+        self.pushButton = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton.setStyleSheet("QPushButton\n"
+"\n"
+"{\n"
+"    font-family:Microsoft Yahei;\n"
+"\n"
+"    font-size:11pt;\n"
+" \n"
+"    color:white;\n"
+"\n"
+"    background-color:rgb(21, 199, 1);\n"
+"\n"
+"    border-radius:10px;\n"
+"\n"
+"}\n"
+"\n"
+"QPushButton:hover\n"
+"{\n"
+"    background-color:rgb(21, 175, 0);\n"
+"    padding-left:-3px;\n"
+"    padding-top:-3px;\n"
+"\n"
+"}\n"
+"\n"
+"\n"
+"QPushButton:pressed\n"
+"{  \n"
+"    background-color:rgb(0, 113, 0);\n"
+"    padding-left:3px;\n"
+"    padding-top:3px;\n"
+"}")
+        self.pushButton.setObjectName("pushButton")
+        self.horizontalLayout.addWidget(self.pushButton)
+        self.pushButton_5 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_5.setStyleSheet("QPushButton\n"
+"{\n"
+"    font-family:Microsoft Yahei;\n"
+"    font-size:11pt; \n"
+"    color:white;\n"
+"    background-color:rgb(255, 170, 0);\n"
+"    border-radius:10px;\n"
+"}\n"
+"\n"
+"QPushButton:hover\n"
+"{\n"
+"    background-color:rgb(230, 153, 0);\n"
+"    padding-left:-3px;\n"
+"    padding-top:-3px;\n"
+"\n"
+"}\n"
+"\n"
+"QPushButton:pressed\n"
+"{\n"
+"    background-color:rgb(197, 128, 0);\n"
+"    padding-left:3px;\n"
+"    padding-top:3px;\n"
+"}")
+        self.pushButton_5.setObjectName("pushButton_5")
+        self.horizontalLayout.addWidget(self.pushButton_5)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
         self.pushButton_4 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_4.setStyleSheet("QPushButton\n"
 "{\n"
@@ -178,4 +235,6 @@ class Ui_StaffManage(object):
         item.setText(_translate("StaffManage", "CONTRACT OR NOT"))
         self.pushButton_2.setText(_translate("StaffManage", "Export Excel List"))
         self.pushButton_3.setText(_translate("StaffManage", "Import Excel List"))
+        self.pushButton.setText(_translate("StaffManage", "Export Selected Rows"))
+        self.pushButton_5.setText(_translate("StaffManage", "Import Partial Rows"))
         self.pushButton_4.setText(_translate("StaffManage", "Resume"))
