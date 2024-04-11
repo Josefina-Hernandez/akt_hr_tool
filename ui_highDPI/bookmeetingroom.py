@@ -380,7 +380,7 @@ class Ui_BookMeetingRoom(object):
 "}")
         self.radioButton.setObjectName("radioButton")
         self.radioButton_2 = QtWidgets.QRadioButton(self.centralwidget)
-        self.radioButton_2.setGeometry(QtCore.QRect(130, 440, 161, 21))
+        self.radioButton_2.setGeometry(QtCore.QRect(170, 440, 161, 21))
         self.radioButton_2.setStyleSheet("QRadioButton{\n"
 "\n"
 "      color:rgb(91, 91, 138);\n"
@@ -429,7 +429,7 @@ class Ui_BookMeetingRoom(object):
         item.setText(_translate("BookMeetingRoom", "Meeting Contents"))
         __sortingEnabled = self.tableWidget.isSortingEnabled()
         self.tableWidget.setSortingEnabled(False)
-        self.tableWidget.setSortingEnabled(__sortingEnabled)
+        #self.tableWidget.setSortingEnabled(__sortingEnabled)
         self.pushButton_3.setText(_translate("BookMeetingRoom", "Book Meeting Room"))
         self.pushButton_4.setText(_translate("BookMeetingRoom", "Cancel Selected Booking"))
         self.label_25.setText(_translate("BookMeetingRoom", "Meeting Contents:"))
@@ -437,5 +437,5 @@ class Ui_BookMeetingRoom(object):
         self.pushButton_5.setText(_translate("BookMeetingRoom", "X"))
         self.label_26.setText(_translate("BookMeetingRoom", "Meeting Room:"))
         self.radioButton.setText(_translate("BookMeetingRoom", "Room 1"))
-        self.radioButton_2.setText(_translate("BookMeetingRoom", "Room 2 (Kitchen)"))
+        self.radioButton_2.setText(_translate("BookMeetingRoom", "Room 2"))
         self.radioButton_3.setText(_translate("BookMeetingRoom", "Room 3"))

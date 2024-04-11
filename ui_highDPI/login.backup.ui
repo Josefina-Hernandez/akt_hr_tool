@@ -55,16 +55,17 @@
     font-family:Microsoft Yahei;
     /*字体大小为20点*/
     font-size:15pt;
-    /*字体颜色为白色*/
+    /*字体颜色为白色*/    
+	
     color:white;
     /*背景颜色*/  
-    background-color:#C1272D;
+    background-color:rgb(91, 91, 138)
 
 }
 </string>
     </property>
     <property name="text">
-     <string> AKAGANE THAILAND</string>
+     <string>AKAGANE THAILAND</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -87,11 +88,10 @@
     /*字体大小为20点*/
     font-size:12pt;
     /*字体颜色为白色*/    
-	font-weight:bold;
-	font-style:italic;
+	
     color:white;
     /*背景颜色*/  
-    background-color:#C1272D;
+    background-color:rgb(91, 91, 138)
 
 }
 </string>
@@ -354,7 +354,7 @@ QLineEdit:focus
     /*字体颜色为白色*/    
     color:white;
     /*背景颜色*/  
-    background-color:#C1272D;
+    background-color:rgb(14 , 150 , 254);
     /*边框圆角半径为8像素*/ 
     border-radius:5px;
 }
@@ -363,7 +363,7 @@ QLineEdit:focus
 QPushButton:hover
 {
     /*背景颜色*/  
-    background-color:#9e1e24;
+    background-color:rgb(7, 114, 254);
     padding-left:-3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
     padding-top:-3px;
@@ -373,7 +373,7 @@ QPushButton:hover
 QPushButton:pressed
 {
     /*背景颜色*/  
-    background-color:#CD5257;
+    background-color:rgb(14 , 135 , 228);
     /*左内边距为3像素，让按下时字向右移动3像素*/  
     padding-left:3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
@@ -411,7 +411,7 @@ QPushButton:pressed
     /*字体颜色为白色*/    
     color:white;
     /*背景颜色*/  
-    background-color:#C1272D;
+    background-color:rgb(14 , 150 , 254);
     /*边框圆角半径为8像素*/ 
     border-radius:5px;
 }
@@ -420,7 +420,7 @@ QPushButton:pressed
 QPushButton:hover
 {
     /*背景颜色*/  
-    background-color:#9e1e24;
+    background-color:rgb(7, 114, 254);
     padding-left:-3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
     padding-top:-3px;
@@ -430,7 +430,7 @@ QPushButton:hover
 QPushButton:pressed
 {
     /*背景颜色*/  
-    background-color:#CD5257;
+    background-color:rgb(14 , 135 , 228);
     /*左内边距为3像素，让按下时字向右移动3像素*/  
     padding-left:3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
@@ -474,7 +474,7 @@ QPushButton:pressed
 	
     color:white;
     /*背景颜色*/  
-    background-color:#C1272D;
+    background-color:rgb(91, 91, 138)
 
 }
 </string>
@@ -541,7 +541,7 @@ QPushButton:pressed
 	font-weight: bold;
     color:white;
     /*背景颜色*/  
-    background-color:#C1272D;
+    background-color:rgb(14 , 150 , 254);
     /*边框圆角半径为8像素*/ 
     border-radius:5px;
 }
@@ -550,7 +550,7 @@ QPushButton:pressed
 QPushButton:hover
 {
     /*背景颜色*/  
-    background-color:#9e1e24;
+    background-color:rgb(7, 114, 254);
     padding-left:-3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
     padding-top:-3px;
@@ -560,7 +560,7 @@ QPushButton:hover
 QPushButton:pressed
 {
     /*背景颜色*/  
-    background-color:#CD5257;
+    background-color:rgb(14 , 135 , 228);
     /*左内边距为3像素，让按下时字向右移动3像素*/  
     padding-left:3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  

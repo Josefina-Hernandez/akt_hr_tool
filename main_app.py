@@ -94,8 +94,8 @@ class loginWindow(QMainWindow, Ui_loginWindow):
         super(loginWindow, self).__init__()
         self.setupUi(self)
 
-        self.label_7.setText('Developed in 2020  Ver.2.7')
-        self.label_2.setText('HR Information System V2.7')
+        self.label_7.setText('Developed in 2020  Ver.2.8')
+        self.label_2.setText('HR Information System V2.8')
 
         self.id = ''
         self.pushButton.clicked.connect(self.login)
@@ -1766,7 +1766,7 @@ class AskForLeave(QMainWindow, Ui_AskForLeave):
             self.desktop = QApplication.desktop()
             screen_count=self.desktop.screenCount() #2 screen version updating
             geometry = self.desktop.geometry()
-            if screen_count==1:                     #2 screen version updating
+            if screen_count==1 or screen_count==2:  #2 screen version updating
                 width1 = geometry.width()           #2 screen version updating
             else:                                   #2 screen version updating
                 width1 = geometry.width()/2         #2 screen version updating
@@ -2895,7 +2895,7 @@ class OTApplication(QMainWindow, Ui_OTApplication):
             self.desktop = QApplication.desktop()
             screen_count = self.desktop.screenCount()  #2 screen version updating
             geometry = self.desktop.geometry()
-            if screen_count == 1:                      #2 screen version updating
+            if screen_count == 1 or screen_count==2:                      #2 screen version updating
                 width1 = geometry.width()              #2 screen version updating
             else:                                      #2 screen version updating
                 width1 = geometry.width()/2            #2 screen version updating
@@ -3419,6 +3419,52 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         self.calendarWidget.clicked.connect(self.show_on_table)
         self.pushButton_4.clicked.connect(self.cancel_booking)
 
+        self.tableWidget.horizontalHeader().sectionClicked.connect(self.sortTable)
+        self.calendarSorting = {1 : None,
+                                3 : None}
+
+    def sortTable(self, logicalIndex):
+        #print(logicalIndex)
+        if logicalIndex not in [1, 3]:
+            return
+        item = self.tableWidget.horizontalHeaderItem(logicalIndex)
+        if '^' in item.text():
+            item.setText(str(item.text()).replace('^','') + 'v')
+            self.calendarSorting[logicalIndex] = Qt.DescendingOrder
+        elif 'v' in item.text():
+            item.setText(str(item.text()).replace('v', ''))
+            self.calendarSorting[logicalIndex] = None
+        else:
+            item.setText(item.text() + '^')
+            self.calendarSorting[logicalIndex] = Qt.AscendingOrder
+
+        # 保存第一列的排序状态
+        first_column_sort_order = self.calendarSorting.get(1)
+
+        header = self.tableWidget.horizontalHeader()
+        sortOrder = self.calendarSorting[logicalIndex]
+        #print(sortOrder)
+
+        if sortOrder == Qt.AscendingOrder:
+            header.setSortIndicator(logicalIndex, Qt.AscendingOrder)
+        elif sortOrder == Qt.DescendingOrder:
+            header.setSortIndicator(logicalIndex, Qt.DescendingOrder)
+        else:
+            header.setSortIndicator(0, Qt.AscendingOrder)
+
+        for col in self.calendarSorting:
+            if self.calendarSorting[col] is not None:
+                self.tableWidget.sortItems(col, self.calendarSorting[col])
+            else:
+                if col == 3:
+                    if self.calendarSorting[1] is None:
+                        self.tableWidget.sortItems(0, Qt.AscendingOrder)
+                else:
+                    self.tableWidget.sortItems(0, Qt.AscendingOrder)
+
+        # 恢复第一列的排序状态
+        if first_column_sort_order is not None:
+            self.tableWidget.sortItems(1, first_column_sort_order)
 
     def initializing(self):
         self.show_on_table()
@@ -3503,6 +3549,7 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         if judge == False:
             QMessageBox.warning(self, 'Warning',
                                 'The time range you selected is occupied by another meeting! Please change the time range or change the room number, then submit the booking again.')  #------Updated on 9/11/2022
+            self.show_on_table()
             return
 
         msm = f'Are you sure to submit the booking?\n' \
@@ -3534,14 +3581,14 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
 
     def judge_validation(self, start_tm, end_tm, room_no):  #------Updated on 9/11/2022
         meeting_dt = datetime.datetime.strptime(self.calendarWidget.selectedDate().toString('yyyy/MM/dd'), '%Y/%m/%d')
-        self.cursor_judge = DB.cursor()
+        #self.cursor_judge = DB.cursor()
         sql = """SELECT START_TM, END_TM FROM book_meeting_room_ WHERE MEETING_DT=%s and ROOM_NO=%s"""  #------Updated on 9/11/2022
-        try:
-            self.cursor_judge.execute(sql, (meeting_dt, room_no))  #--------Updated on 9/11/2022
-        except pymysql.err.OperationalError:
-            reconnect_DB(self)
-            self.cursor_judge=DB.cursor()
-            self.cursor_judge.execute(sql, (meeting_dt, room_no))  #--------Updated on 9/11/2022
+        #try:
+            #self.cursor_judge.execute(sql, (meeting_dt, room_no))  #--------Updated on 9/11/2022
+        #except pymysql.err.OperationalError:
+        reconnect_DB(self)
+        self.cursor_judge=DB.cursor()
+        self.cursor_judge.execute(sql, (meeting_dt, room_no))  #--------Updated on 9/11/2022
 
         res = self.cursor_judge.fetchall()
         self.cursor_judge.close()
@@ -3566,12 +3613,12 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         #print(meeting_dt, type(meeting_dt))
         self.cursor = DB.cursor()
         sql = """SELECT * FROM book_meeting_room_ WHERE MEETING_DT=%s"""
-        try:
-            self.cursor.execute(sql, (meeting_dt))
-        except pymysql.err.OperationalError:
-            reconnect_DB(self)
-            self.cursor=DB.cursor()
-            self.cursor.execute(sql, (meeting_dt))
+        #try:
+            #self.cursor.execute(sql, (meeting_dt))
+        #except pymysql.err.OperationalError:
+        reconnect_DB(self)
+        self.cursor=DB.cursor()
+        self.cursor.execute(sql, (meeting_dt))
 
         res = self.cursor.fetchall()
         if res == ():
@@ -3582,11 +3629,22 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         for i in range(len(res)):
             col = 0
             for j in [0, 2, 3, 4, 5, 7, 8, 9]:  #---------Updateded on 9/11/2022
-                self.tableWidget.setItem(i, col, QTableWidgetItem(str(res[i][j])))
+                if j == 4 or j == 5:
+                    total_seconds = res[i][j].total_seconds()
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+
+                    delta_str = f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+                    self.tableWidget.setItem(i, col, QTableWidgetItem(delta_str))
+                else:
+                    self.tableWidget.setItem(i, col, QTableWidgetItem(str(res[i][j])))
                 self.tableWidget.resizeColumnToContents(col)
                 self.tableWidget.resizeRowToContents(i)
                 col += 1
         self.cursor.close()
+        self.tableWidget.horizontalHeaderItem(1).setText('Room No.')
+        self.tableWidget.horizontalHeaderItem(3).setText('Start Time.')
 
     # self.tableWidget.sortItems(2, QtCore.Qt.AscendingOrder)
 
@@ -3781,7 +3839,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         self.desktop = QApplication.desktop()
         screen_count = self.desktop.screenCount()  #2 screen version updating
         geometry = self.desktop.geometry()
-        if screen_count == 1:                      #2 screen version updating
+        if screen_count == 1 or screen_count == 2:                      #2 screen version updating
             width1 = geometry.width()              #2 screen version updating
         else:                                      #2 screen version updating
             width1 = geometry.width()/2            #2 screen version updating
@@ -7184,7 +7242,7 @@ class Exp_OT_Sheet(QThread):
                         ws[f'V{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
                         ws[f'W{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
                         ws[f'X{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
-                        break
+                        #break
                         # MODIFIED ON 12/3/2024 --------END
 
                 ws[f'B{i}'].value = each_line[0]
@@ -7195,7 +7253,7 @@ class Exp_OT_Sheet(QThread):
 
                 # MODIFIED ON 12/3/2024 --------START
                 if each_line[3] != 'None':
-                    if ws[f'V{i}']:
+                    if ws[f'V{i}'].value:
                         if ws[f'W{i}'].value:
                             ws[f'X{i}'].value = each_line[3]
                         else:
@@ -8373,7 +8431,7 @@ def WriteUpdateCMD(new_name, old_name):
 if __name__ == '__main__':
     DB = None
     ID = -1
-    CURRENT_VER=2.7
+    CURRENT_VER=2.8
     HR_MODE = 0
 
     app = QApplication(sys.argv)

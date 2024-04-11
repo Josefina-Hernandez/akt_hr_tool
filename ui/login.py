@@ -35,7 +35,7 @@ class Ui_loginWindow(object):
 "    \n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(91, 91, 138)\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}\n"
 "")
@@ -50,10 +50,11 @@ class Ui_loginWindow(object):
 "    /*字体大小为20点*/\n"
 "    font-size:12pt;\n"
 "    /*字体颜色为白色*/    \n"
-"    \n"
+"    font-weight:bold;\n"
+"    font-style:italic;\n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(91, 91, 138)\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}\n"
 "")
@@ -195,7 +196,7 @@ class Ui_loginWindow(object):
 "    /*字体颜色为白色*/    \n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(14 , 150 , 254);\n"
+"    background-color:#C1272D;\n"
 "    /*边框圆角半径为8像素*/ \n"
 "    border-radius:5px;\n"
 "}\n"
@@ -204,7 +205,7 @@ class Ui_loginWindow(object):
 "QPushButton:hover\n"
 "{\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(7, 114, 254);\n"
+"    background-color:#9e1e24;\n"
 "    padding-left:-3px;\n"
 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
 "    padding-top:-3px;\n"
@@ -214,7 +215,7 @@ class Ui_loginWindow(object):
 "QPushButton:pressed\n"
 "{\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(14 , 135 , 228);\n"
+"    background-color:#CD5257;\n"
 "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
 "    padding-left:3px;\n"
 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
@@ -238,7 +239,7 @@ class Ui_loginWindow(object):
 "    /*字体颜色为白色*/    \n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(14 , 150 , 254);\n"
+"    background-color:#C1272D;\n"
 "    /*边框圆角半径为8像素*/ \n"
 "    border-radius:5px;\n"
 "}\n"
@@ -247,7 +248,7 @@ class Ui_loginWindow(object):
 "QPushButton:hover\n"
 "{\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(7, 114, 254);\n"
+"    background-color:#9e1e24;\n"
 "    padding-left:-3px;\n"
 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
 "    padding-top:-3px;\n"
@@ -257,7 +258,7 @@ class Ui_loginWindow(object):
 "QPushButton:pressed\n"
 "{\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(14 , 135 , 228);\n"
+"    background-color:#CD5257;\n"
 "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
 "    padding-left:3px;\n"
 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
@@ -280,7 +281,7 @@ class Ui_loginWindow(object):
 "    \n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(91, 91, 138)\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}\n"
 "")
@@ -318,7 +319,7 @@ class Ui_loginWindow(object):
 "    /*字体颜色为白色*/    \n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(14 , 150 , 254);\n"
+"    background-color:#C1272D;\n"
 "    /*边框圆角半径为8像素*/ \n"
 "    border-radius:5px;\n"
 "}\n"
@@ -327,7 +328,7 @@ class Ui_loginWindow(object):
 "QPushButton:hover\n"
 "{\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(7, 114, 254);\n"
+"    background-color:#9e1e24;\n"
 "    padding-left:-3px;\n"
 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
 "    padding-top:-3px;\n"
@@ -337,7 +338,7 @@ class Ui_loginWindow(object):
 "QPushButton:pressed\n"
 "{\n"
 "    /*背景颜色*/  \n"
-"    background-color:rgb(14 , 135 , 228);\n"
+"    background-color:#CD5257;\n"
 "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
 "    padding-left:3px;\n"
 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
@@ -352,7 +353,7 @@ class Ui_loginWindow(object):
     def retranslateUi(self, loginWindow):
         _translate = QtCore.QCoreApplication.translate
         loginWindow.setWindowTitle(_translate("loginWindow", "AKT HR Information System"))
-        self.label.setText(_translate("loginWindow", "AKAGANE THAILAND"))
+        self.label.setText(_translate("loginWindow", " AKAGANE THAILAND"))
         self.label_2.setText(_translate("loginWindow", "HR Information System V1.0"))
         self.label_3.setText(_translate("loginWindow", "UserName"))
         self.label_4.setText(_translate("loginWindow", "Password"))

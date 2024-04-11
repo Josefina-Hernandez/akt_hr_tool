@@ -2333,5 +2333,6 @@ class Ui_AskForLeave(object):
         item.setText(_translate("AskForLeave", "HR"))
         item = self.tableWidget.horizontalHeaderItem(16)
         item.setText(_translate("AskForLeave", "MD"))
+        self.tableWidget.setSortingEnabled(True)
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("AskForLeave", "Summary"))
         self.pushButton_4.setText(_translate("AskForLeave", "X"))

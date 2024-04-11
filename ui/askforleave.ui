@@ -3512,6 +3512,9 @@ QPushButton:pressed
       <property name="gridStyle">
        <enum>Qt::SolidLine</enum>
       </property>
+      <property name="sortingEnabled">
+       <bool>true</bool>
+      </property>
       <property name="rowCount">
        <number>1</number>
       </property>
