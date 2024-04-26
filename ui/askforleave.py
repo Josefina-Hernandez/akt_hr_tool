@@ -2089,6 +2089,10 @@ class Ui_AskForLeave(object):
 "{\n"
 "    background-color: rgb(225, 255, 254);\n"
 "\n"
+"}\n"
+"\n"
+"QTableWidget::item:selected {\n"
+"    background-color: #C1272D;\n"
 "}")
         self.tableWidget.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.tableWidget.setFrameShadow(QtWidgets.QFrame.Sunken)
@@ -2187,7 +2191,7 @@ class Ui_AskForLeave(object):
         self.frame.setGeometry(QtCore.QRect(0, 0, 840, 16))
         self.frame.setStyleSheet("QFrame\n"
 "{\n"
-"    background-color:rgb(14 , 150 , 254);\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}")
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -2299,6 +2303,7 @@ class Ui_AskForLeave(object):
         self.pushButton_2.setText(_translate("AskForLeave", "Export to Excel File"))
         self.pushButton_16.setText(_translate("AskForLeave", "Click To Show Data"))
         self.label_44.setText(_translate("AskForLeave", "(Request year & month)"))
+        self.tableWidget.setSortingEnabled(True)
         item = self.tableWidget.horizontalHeaderItem(0)
         item.setText(_translate("AskForLeave", "Request ID"))
         item = self.tableWidget.horizontalHeaderItem(1)
@@ -2333,6 +2338,5 @@ class Ui_AskForLeave(object):
         item.setText(_translate("AskForLeave", "HR"))
         item = self.tableWidget.horizontalHeaderItem(16)
         item.setText(_translate("AskForLeave", "MD"))
-        self.tableWidget.setSortingEnabled(True)
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("AskForLeave", "Summary"))
         self.pushButton_4.setText(_translate("AskForLeave", "X"))

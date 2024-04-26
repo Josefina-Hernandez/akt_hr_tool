@@ -220,9 +220,14 @@ QPushButton:pressed
      <bool>false</bool>
     </property>
     <property name="styleSheet">
-     <string notr="true">QCalendarWidget
-{
-	background-color: rgb(255,255,255);
+     <string notr="true">QCalendarWidget QTableView {
+    selection-background-color: #C1272D;
+}
+
+#qt_calendar_navigationbar {
+    background-color: #C1272D;
+	font-weight: bold;
+    color: white;
 }</string>
     </property>
     <property name="gridVisible">
@@ -275,7 +280,7 @@ QPushButton:pressed
     /*字体颜色为白色*/    
     color:white;
     /*背景颜色*/  
-    background-color:rgb(91, 91, 138);
+    background-color:#C1272D;
     /*边框圆角半径为8像素*/ 
     border-radius:10px;
 }
@@ -284,7 +289,7 @@ QPushButton:pressed
 QPushButton:hover
 {
     /*背景颜色*/  
-    background-color:rgb(62, 62, 95);
+    background-color:#9e1e24;
     padding-left:-3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
     padding-top:-3px;
@@ -295,7 +300,7 @@ QPushButton:hover
 QPushButton:pressed
 {
     /*背景颜色*/  
-    background-color:rgb(55, 55, 84);
+    background-color:#CD5257;
     /*左内边距为3像素，让按下时字向右移动3像素*/  
     padding-left:3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
@@ -326,7 +331,7 @@ QPushButton:pressed
 	font-weight:bold;
     color:white;
     /*背景颜色*/  
-    background-color:rgb(8, 88, 186);
+    background-color:#C1272D;
 
 }
 </string>
@@ -613,7 +618,7 @@ QPushButton:pressed
     /*字体颜色为白色*/    
     color:white;
     /*背景颜色*/  
-    background-color:rgb(91, 91, 138);
+    background-color:#C1272D;
     /*边框圆角半径为8像素*/ 
     border-radius:10px;
 }
@@ -622,7 +627,7 @@ QPushButton:pressed
 QPushButton:hover
 {
     /*背景颜色*/  
-    background-color:rgb(62, 62, 95);
+    background-color:#9e1e24;
     padding-left:-3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
     padding-top:-3px;
@@ -632,7 +637,7 @@ QPushButton:hover
 QPushButton:pressed
 {
     /*背景颜色*/  
-    background-color:rgb(55, 55, 84);
+    background-color:#CD5257;
     /*左内边距为3像素，让按下时字向右移动3像素*/  
     padding-left:3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
@@ -725,7 +730,7 @@ QPushButton:pressed
 	font-weight:bold;    
     color:white;
     /*背景颜色*/  
-    background-color:rgb(8, 88, 186);
+    background-color:#C1272D;
     /*边框圆角半径为8像素*/ 
     border-radius:10px;
 }
@@ -734,7 +739,7 @@ QPushButton:pressed
 QPushButton:hover
 {
     /*背景颜色*/  
-    background-color:rgb(58, 58, 89);
+    background-color:#9e1e24;
     padding-left:-3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
     padding-top:-3px;
@@ -744,7 +749,7 @@ QPushButton:hover
 QPushButton:pressed
 {
     /*背景颜色*/  
-    background-color:rgb(43, 43, 66);
+    background-color:#CD5257;
     /*左内边距为3像素，让按下时字向右移动3像素*/  
     padding-left:3px;
     /*上内边距为3像素，让按下时字向下移动3像素*/  
@@ -767,7 +772,7 @@ QPushButton:pressed
     <property name="styleSheet">
      <string notr="true">QFrame
 {
-    background-color:rgb(8, 88, 186);
+    background-color:#C1272D;
 }
 </string>
     </property>
@@ -800,7 +805,7 @@ QPushButton:pressed
 	font-weight:bold;
     color:white;
     /*背景颜色*/  
-    background-color:rgb(8, 88, 186);
+    background-color:#C1272D;
 
 }
 </string>
@@ -832,7 +837,7 @@ QPushButton:pressed
 	font-weight:bold;
     color:white;
     /*背景颜色*/  
-    background-color:rgb(8, 88, 186);
+    background-color:#C1272D;
 
 }
 </string>

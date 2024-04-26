@@ -111,7 +111,10 @@ class Ui_ApplyLateClockIn(object):
         self.pushButton_2.setObjectName("pushButton_2")
         self.tableWidget = QtWidgets.QTableWidget(ApplyLateClockIn)
         self.tableWidget.setGeometry(QtCore.QRect(3, 50, 1061, 331))
-        self.tableWidget.setStyleSheet("")
+        self.tableWidget.setStyleSheet("QTableWidget::item:selected {\n"
+"    background-color:#C1272D;\n"
+"}\n"
+"")
         self.tableWidget.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.tableWidget.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContentsOnFirstShow)

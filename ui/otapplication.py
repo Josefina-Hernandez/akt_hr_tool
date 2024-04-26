@@ -756,8 +756,12 @@ class Ui_OTApplication(object):
         self.tableWidget.setStyleSheet("QTableWidget\n"
 "{\n"
 "    background-color: rgb(225, 255, 254);\n"
+"}\n"
 "\n"
-"}")
+"QTableWidget::item:selected {\n"
+"    background-color: #C1272D;\n"
+"}\n"
+"")
         self.tableWidget.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.tableWidget.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContentsOnFirstShow)
@@ -1073,7 +1077,7 @@ class Ui_OTApplication(object):
         self.frame_2.setGeometry(QtCore.QRect(0, 0, 861, 16))
         self.frame_2.setStyleSheet("QFrame\n"
 "{\n"
-"    background-color:rgb(14 , 150 , 254);\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}")
         self.frame_2.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -1113,6 +1117,7 @@ class Ui_OTApplication(object):
         self.label_12.setText(_translate("OTApplication", "Date of OT:"))
         self.label_31.setText(_translate("OTApplication", "Please input the correct time range!"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("OTApplication", "OT application"))
+        self.tableWidget.setSortingEnabled(True)
         item = self.tableWidget.horizontalHeaderItem(0)
         item.setText(_translate("OTApplication", "Request ID"))
         item = self.tableWidget.horizontalHeaderItem(1)
@@ -1141,7 +1146,9 @@ class Ui_OTApplication(object):
         item.setText(_translate("OTApplication", "MD"))
         item = self.tableWidget.horizontalHeaderItem(13)
         item.setText(_translate("OTApplication", "Remarks"))
-        self.tableWidget.setSortingEnabled(True)
+        __sortingEnabled = self.tableWidget.isSortingEnabled()
+        self.tableWidget.setSortingEnabled(False)
+        self.tableWidget.setSortingEnabled(__sortingEnabled)
         self.label_29.setText(_translate("OTApplication", "Year"))
         self.label_30.setText(_translate("OTApplication", "Month"))
         self.comboBox_3.setCurrentText(_translate("OTApplication", "01"))

@@ -94,8 +94,8 @@ class loginWindow(QMainWindow, Ui_loginWindow):
         super(loginWindow, self).__init__()
         self.setupUi(self)
 
-        self.label_7.setText('Developed in 2020  Ver.2.8')
-        self.label_2.setText('HR Information System V2.8')
+        self.label_7.setText('Developed in 2020  Ver.2.9')
+        self.label_2.setText('HR Information System V2.9')
 
         self.id = ''
         self.pushButton.clicked.connect(self.login)
@@ -267,8 +267,14 @@ class loginWindow(QMainWindow, Ui_loginWindow):
 
         self.cursor = DB.cursor()
 
-        self.id = self.lineEdit.text()
+        self.id = str(self.lineEdit.text()).strip()
         self.password = self.lineEdit_2.text()
+        if not self.id.isdigit():
+            QMessageBox.warning(self, 'Warning', 'Wrong user ID!')
+            self.cursor.close()
+
+            return
+
         sql = """SELECT PASSWORD, PRIORITY FROM login_pass WHERE ID=%s"""
         self.cursor.execute(sql, (self.id))
         pass_check = self.cursor.fetchall()
@@ -363,7 +369,7 @@ class loginWindow(QMainWindow, Ui_loginWindow):
                                                   "    /*字体颜色为白色*/    \n"
                                                   "    color:white;\n"
                                                   "    /*背景颜色*/  \n"
-                                                  "    background-color:rgb(85, 0, 255);\n"
+                                                  "    background-color:#C1272D;\n"
                                                   "    /*边框圆角半径为8像素*/ \n"
                                                   "    border-radius:10px;\n"
                                                   "}\n"
@@ -372,7 +378,7 @@ class loginWindow(QMainWindow, Ui_loginWindow):
                                                   "QPushButton:hover\n"
                                                   "{\n"
                                                   "    /*背景颜色*/  \n"
-                                                  "    background-color:rgb(58, 0, 175);\n"
+                                                  "    background-color:#9e1e24;\n"
                                                   "    padding-left:-3px;\n"
                                                   "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
                                                   "    padding-top:-3px;\n"
@@ -382,7 +388,7 @@ class loginWindow(QMainWindow, Ui_loginWindow):
                                                   "QPushButton:pressed\n"
                                                   "{\n"
                                                   "    /*背景颜色*/  \n"
-                                                  "    background-color:rgb(57, 0, 122);\n"
+                                                  "    background-color:#CD5257;\n"
                                                   "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
                                                   "    padding-left:3px;\n"
                                                   "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
@@ -446,6 +452,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pushButton_4.setAttribute(Qt.WA_UnderMouse, False)
         BookMeetingRoom.show()
         BookMeetingRoom.initializing()
+        BookMeetingRoom.calendarWidget.setFocus()
         MainWindow.destroy()
 
     def to_otapplication(self):
@@ -464,6 +471,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pushButton.setAttribute(Qt.WA_UnderMouse, False)
         TimeCard.show()
         TimeCard.startTimer()
+        TimeCard.calendarWidget.setFocus()
         MainWindow.destroy()
 
     def to_passchange(self):
@@ -490,7 +498,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def init_db(self):
         self.cursor = DB.cursor()
-        sql = """SELECT NAME, POSITION FROM akt_staff_ WHERE ID=%s"""
+        sql = """SELECT NAME, POSITION FROM team_stru WHERE ID=%s"""
         self.cursor.execute(sql, (ID))
         res = self.cursor.fetchall()
         self.name = res[0][0]
@@ -536,6 +544,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                             "    padding-top:3px;\n"
                                             "}")
         else:
+            self.label_4.setText('(Group leader/MD/DM only)')
             if self.position.strip() != 'Leader' and self.position.strip() != 'DM' and self.position.strip() != 'MD':
                 # print(111)
                 self.pushButton_9.setEnabled(False)
@@ -584,7 +593,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                 "    /*字体颜色为白色*/    \n"
                                                 "    color:white;\n"
                                                 "    /*背景颜色*/  \n"
-                                                "    background-color:rgb(85,0,255);\n"
+                                                "    background-color:#C1272D;\n"
                                                 "    /*边框圆角半径为8像素*/ \n"
                                                 "    border-radius:10px;\n"
                                                 "}\n"
@@ -593,7 +602,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                 "QPushButton:hover\n"
                                                 "{\n"
                                                 "    /*背景颜色*/  \n"
-                                                "    background-color:rgb(58, 0, 175);\n"
+                                                "    background-color:#9e1e24;\n"
                                                 "    padding-left:-3px;\n"
                                                 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
                                                 "    padding-top:-3px;\n"
@@ -603,7 +612,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                 "QPushButton:pressed\n"
                                                 "{\n"
                                                 "    /*背景颜色*/  \n"
-                                                "    background-color:rgb(57, 0, 122);\n"
+                                                "    background-color:#CD5257;\n"
                                                 "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
                                                 "    padding-left:3px;\n"
                                                 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
@@ -656,6 +665,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
         self.pushButton_4.clicked.connect(self.export_excel)
 
     def export_excel(self):
+        self.calendarWidget.setFocus()
         yearmonth = str(self.calendarWidget.yearShown()) + "%02d" % self.calendarWidget.monthShown()
 
         self.cursor_exc=DB.cursor()
@@ -1478,9 +1488,12 @@ class TimeCard(QMainWindow, Ui_TimeCard):
         else:
             self.textEdit_9.setText(in2)
 
+        self.calendarWidget.setFocus()
+
     def clock_in(self):
         a=QMessageBox.question(self, 'Confirmation', 'Are you sure to clock in?')
         if a==QMessageBox.No:
+            self.calendarWidget.setFocus()
             return
         user_id = str(ID)
         serial = user_id + self.t.strftime('%Y%m%d')
@@ -1527,6 +1540,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
     def clock_out(self):
         a = QMessageBox.question(self, 'Confirmation', 'Are you sure to clock out?')
         if a == QMessageBox.No:
+            self.calendarWidget.setFocus()
             return
         user_id = str(ID)
         if not self.checkBox.isChecked():
@@ -1551,6 +1565,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
         if a == 0:
             QMessageBox.critical(self, 'Warning', f'Clock-out failed! You did not clocked in for today({dt}).')
             self.cursor_clock.close()
+            self.calendarWidget.setFocus()
             return
 
         temp = self.cursor_clock.fetchall()[0][1]
@@ -1558,6 +1573,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
             QMessageBox.critical(self, 'Warning',
                                  f'You have already clocked out, if you want to clock out again, please clock in first, or cancel clock-out first.')
             self.cursor_clock.close()
+            self.calendarWidget.setFocus()
             return
 
         sql = """UPDATE time_card SET CLOCK_OUT=%s, DAY_LAG=%s WHERE SERIAL=%s"""
@@ -1586,16 +1602,19 @@ class TimeCard(QMainWindow, Ui_TimeCard):
             a = self.cursor.execute(sql, (serial))
         if a == 0:
             QMessageBox.critical(self, 'Warning', f'You did not clocked out for the latest time.')
+            self.calendarWidget.setFocus()
             return
 
         temp = self.cursor.fetchall()[0][0]
         if temp == None:
             QMessageBox.critical(self, 'Warning', f'You did not clocked out for the latest time.')
+            self.calendarWidget.setFocus()
             return
 
         target_time = temp.strftime('%d/%m/%Y %H:%M:%S')
         res = QMessageBox.question(self, 'Query', f'Are you sure to cancel the clock-out record: {target_time}?')
         if res == QMessageBox.No:
+            self.calendarWidget.setFocus()
             return
 
         sql = """UPDATE time_card SET CLOCK_OUT=%s, DAY_LAG=%s WHERE SERIAL=%s"""
@@ -1873,6 +1892,7 @@ class AskForLeave(QMainWindow, Ui_AskForLeave):
 
     def download_data(self):
         self.tableWidget.clearContents()
+        self.tableWidget.setSortingEnabled(False)
         self.tableWidget.setRowCount(1)
         if self.comboBox_6.currentText() == 'All':
             date_min = datetime.datetime.strptime(self.dateEdit_6.text() + '0101', '%Y%m%d')
@@ -1921,12 +1941,19 @@ class AskForLeave(QMainWindow, Ui_AskForLeave):
                     else:
                         value='Declined'
                 #==========================Updated on 12/9/2023, switching HR and MD (End)
+
+                if j == 5:
+                    apply_date_temp = datetime.datetime.strptime(value, '%d/%m/%Y')
+                    value = datetime.datetime.strftime(apply_date_temp, '%Y-%m-%d')
                 self.tableWidget.setItem(i, j, QTableWidgetItem(str(value)))
+
+
 
         for i in range(17):
             if i == 12:
                 continue
             self.tableWidget.resizeColumnToContents(i)
+        self.tableWidget.setSortingEnabled(True)
 
     def del_hometown_request(self):
         if self.comboBox_3.currentText() == '':
@@ -3003,6 +3030,7 @@ class OTApplication(QMainWindow, Ui_OTApplication):
 
     def download_data(self):
         self.tableWidget.clearContents()
+        self.tableWidget.setSortingEnabled(False)
         self.tableWidget.setRowCount(1)
         if self.comboBox_3.currentText() == 'All':
             date_min = datetime.datetime.strptime(self.dateEdit.text() + '0101', '%Y%m%d')
@@ -3050,6 +3078,10 @@ class OTApplication(QMainWindow, Ui_OTApplication):
                     else:
                         value='Declined'
 
+                if j == 4:
+                    apply_dt_temp = datetime.datetime.strptime(value, '%d/%m/%Y')
+                    value = datetime.datetime.strftime(apply_dt_temp, '%Y-%m-%d')
+
                 self.tableWidget.setItem(i, j, QTableWidgetItem(str(value)))
 
         for i in [0, 3, 9, 10, 11, 12, 13]:
@@ -3057,6 +3089,7 @@ class OTApplication(QMainWindow, Ui_OTApplication):
             #   continue
             self.tableWidget.resizeColumnToContents(i)
         self.cursor.close()
+        self.tableWidget.setSortingEnabled(True)
 
     def cancel_apply(self):
         if self.comboBox_2.currentText() == '':
@@ -3470,6 +3503,7 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         self.show_on_table()
 
     def cancel_booking(self):
+        self.calendarWidget.setFocus()
         index = self.tableWidget.currentRow()
         if index == -1:
             QMessageBox.warning(self, 'Warning', 'Please select the booking record that you want to cancel.')
@@ -3521,6 +3555,7 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         QMessageBox.information(self, 'Info', f'Request ID: {booking_id}, has been canceled successfully!')
 
     def submit_request(self):
+        self.calendarWidget.setFocus()
         if self.label_31.text() == 'Please input the correct time range!':
             QMessageBox.critical(self, 'Time Error', 'Please input the correct time range first!')
             return
@@ -3954,6 +3989,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
     def show_leave_contents(self):
         self.tableWidget_3.clearContents()
+        self.tableWidget_3.setSortingEnabled(False)
         self.tableWidget_3.setRowCount(0)
         self.tableWidget_3.setColumnCount(11)
         self.cursor_filling = DB.cursor()
@@ -3990,9 +4026,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.tableWidget_3.resizeRowToContents(i)
 
         self.cursor_filling.close()
+        self.tableWidget_3.setSortingEnabled(True)
 
     def show_ot_contents(self):
         self.tableWidget_2.clearContents()
+        self.tableWidget_2.setSortingEnabled(False)
         self.tableWidget_2.setRowCount(0)
         self.tableWidget_2.setColumnCount(9)
         self.cursor_filling = DB.cursor()
@@ -4029,9 +4067,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.tableWidget_2.resizeRowToContents(i)
 
         self.cursor_filling.close()
+        self.tableWidget_2.setSortingEnabled(True)
 
     def show_late_contents(self):
         self.tableWidget_4.clearContents()
+        self.tableWidget_4.setSortingEnabled(False)
         self.tableWidget_4.setRowCount(0)
         self.tableWidget_4.setColumnCount(7)
         self.cursor_filling = DB.cursor()
@@ -4068,9 +4108,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.tableWidget_4.resizeRowToContents(i)
 
         self.cursor_filling.close()
+        self.tableWidget_4.setSortingEnabled(True)
 
     def show_forget_contents(self):
         self.tableWidget_8.clearContents()
+        self.tableWidget_8.setSortingEnabled(False)
         self.tableWidget_8.setRowCount(0)
         self.tableWidget_8.setColumnCount(12)
         self.cursor_filling = DB.cursor()
@@ -4103,9 +4145,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             self.tableWidget_8.resizeRowToContents(i)
 
         self.cursor_filling.close()
+        self.tableWidget_8.setSortingEnabled(True)
 #-----------------------------------------------------
     def show_leave_history(self):
         self.tableWidget_3.clearContents()
+        self.tableWidget_3.setSortingEnabled(False)
         self.tableWidget_3.setRowCount(0)
         self.tableWidget_3.setColumnCount(15)
         self.tableWidget_3.setHorizontalHeaderLabels(['No.','Staff Name','Staff ID','Type','Submitted On','Start Date','Start Time','End Date','End Time','Duration(Day)','Remarks','Leader','DM','HR','MD']) #Updated on 12/9/2023, switching HR and MD
@@ -4186,9 +4230,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             #self.tableWidget_3.resizeColumnToContents(i)
             self.tableWidget_3.resizeRowToContents(i)
         cur.close()
+        self.tableWidget_3.setSortingEnabled(True)
 
     def show_ot_history(self):
         self.tableWidget_2.clearContents()
+        self.tableWidget_2.setSortingEnabled(False)
         self.tableWidget_2.setRowCount(0)
         self.tableWidget_2.setColumnCount(13)
         self.tableWidget_2.setHorizontalHeaderLabels(
@@ -4258,9 +4304,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             #self.tableWidget_2.resizeColumnToContents(i)
             self.tableWidget_2.resizeRowToContents(i)
         cur.close()
+        self.tableWidget_2.setSortingEnabled(True)
 
     def show_late_history(self):
         self.tableWidget_4.clearContents()
+        self.tableWidget_4.setSortingEnabled(False)
         self.tableWidget_4.setRowCount(0)
         self.tableWidget_4.setColumnCount(10)
         self.tableWidget_4.setHorizontalHeaderLabels(
@@ -4326,9 +4374,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             # self.tableWidget_4.resizeColumnToContents(i)
             self.tableWidget_4.resizeRowToContents(i)
         cur.close()
+        self.tableWidget_4.setSortingEnabled(True)
 
     def show_forget_history(self):
         self.tableWidget_8.clearContents()
+        self.tableWidget_8.setSortingEnabled(False)
         self.tableWidget_8.setRowCount(0)
         self.tableWidget_8.setColumnCount(15)
         self.tableWidget_8.setHorizontalHeaderLabels(
@@ -4394,6 +4444,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             # self.tableWidget_8.resizeColumnToContents(i)
             self.tableWidget_8.resizeRowToContents(i)
         cur.close()
+        self.tableWidget_8.setSortingEnabled(True)
 
 #-----------------------------------------------------
     def show_leave_panel(self):
@@ -5698,6 +5749,7 @@ class ApplyLateClockIn(QDialog, Ui_ApplyLateClockIn):
 
     def closeEvent(self, event):
         TimeCard.show()
+        TimeCard.calendarWidget.setFocus()
 
 class ForgetRecord(QDialog, Ui_ForgetRecord):
     def __init__(self):
@@ -6065,6 +6117,7 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
 
     def closeEvent(self, event):
         TimeCard.show()
+        TimeCard.calendarWidget.setFocus()
 
 class AdminMain(QMainWindow, Ui_AdminMain):
     def __init__(self):
@@ -8431,7 +8484,7 @@ def WriteUpdateCMD(new_name, old_name):
 if __name__ == '__main__':
     DB = None
     ID = -1
-    CURRENT_VER=2.8
+    CURRENT_VER=2.9
     HR_MODE = 0
 
     app = QApplication(sys.argv)

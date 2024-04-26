@@ -49,6 +49,17 @@
       <bold>false</bold>
      </font>
     </property>
+    <property name="styleSheet">
+     <string notr="true">QCalendarWidget QTableView {
+    selection-background-color: #C1272D;
+}
+
+#qt_calendar_navigationbar {
+    background-color: #C1272D;
+	font-weight: bold;
+    color: white;
+}</string>
+    </property>
     <property name="gridVisible">
      <bool>true</bool>
     </property>
@@ -94,8 +105,12 @@
      <string notr="true">QTableWidget
 {
 	background-color: rgb(225, 255, 254);
+}
 
-}</string>
+QTableWidget::item:selected {
+    background-color: #C1272D;
+}
+</string>
     </property>
     <property name="frameShape">
      <enum>QFrame::StyledPanel</enum>
@@ -219,7 +234,7 @@
     <property name="styleSheet">
      <string notr="true">QFrame
 {
-	background-color:rgb(8, 88, 186);
+	background-color:#C1272D;
 
 }</string>
     </property>

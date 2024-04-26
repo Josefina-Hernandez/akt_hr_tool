@@ -31,6 +31,15 @@ class Ui_BookMeetingRoom(object):
         font.setItalic(False)
         font.setWeight(50)
         self.calendarWidget.setFont(font)
+        self.calendarWidget.setStyleSheet("QCalendarWidget QTableView {\n"
+"    selection-background-color: #C1272D;\n"
+"}\n"
+"\n"
+"#qt_calendar_navigationbar {\n"
+"    background-color: #C1272D;\n"
+"    font-weight: bold;\n"
+"    color: white;\n"
+"}")
         self.calendarWidget.setGridVisible(True)
         self.calendarWidget.setObjectName("calendarWidget")
         self.label_24 = QtWidgets.QLabel(self.centralwidget)
@@ -52,8 +61,12 @@ class Ui_BookMeetingRoom(object):
         self.tableWidget.setStyleSheet("QTableWidget\n"
 "{\n"
 "    background-color: rgb(225, 255, 254);\n"
+"}\n"
 "\n"
-"}")
+"QTableWidget::item:selected {\n"
+"    background-color: #C1272D;\n"
+"}\n"
+"")
         self.tableWidget.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.tableWidget.setFrameShadow(QtWidgets.QFrame.Plain)
         self.tableWidget.setLineWidth(2)
@@ -93,7 +106,7 @@ class Ui_BookMeetingRoom(object):
         self.frame.setGeometry(QtCore.QRect(0, 0, 1390, 16))
         self.frame.setStyleSheet("QFrame\n"
 "{\n"
-"    background-color:rgb(8, 88, 186);\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}")
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -410,7 +423,7 @@ class Ui_BookMeetingRoom(object):
         _translate = QtCore.QCoreApplication.translate
         BookMeetingRoom.setWindowTitle(_translate("BookMeetingRoom", "Book Meeting Room"))
         self.label_24.setText(_translate("BookMeetingRoom", "Please Select Time Range:"))
-        self.tableWidget.setSortingEnabled(True)
+        self.tableWidget.setSortingEnabled(False)
         item = self.tableWidget.horizontalHeaderItem(0)
         item.setText(_translate("BookMeetingRoom", "Booking ID"))
         item = self.tableWidget.horizontalHeaderItem(1)
@@ -429,7 +442,7 @@ class Ui_BookMeetingRoom(object):
         item.setText(_translate("BookMeetingRoom", "Meeting Contents"))
         __sortingEnabled = self.tableWidget.isSortingEnabled()
         self.tableWidget.setSortingEnabled(False)
-        #self.tableWidget.setSortingEnabled(__sortingEnabled)
+        self.tableWidget.setSortingEnabled(__sortingEnabled)
         self.pushButton_3.setText(_translate("BookMeetingRoom", "Book Meeting Room"))
         self.pushButton_4.setText(_translate("BookMeetingRoom", "Cancel Selected Booking"))
         self.label_25.setText(_translate("BookMeetingRoom", "Meeting Contents:"))

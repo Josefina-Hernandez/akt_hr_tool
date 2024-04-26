@@ -3492,6 +3492,10 @@ QPushButton:pressed
 {
 	background-color: rgb(225, 255, 254);
 
+}
+
+QTableWidget::item:selected {
+    background-color: #C1272D;
 }</string>
       </property>
       <property name="frameShape">
@@ -3697,7 +3701,7 @@ QPushButton:pressed
     <property name="styleSheet">
      <string notr="true">QFrame
 {
-	background-color:rgb(14 , 150 , 254);
+	background-color:#C1272D;
 
 }</string>
     </property>

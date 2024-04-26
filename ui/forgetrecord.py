@@ -111,7 +111,10 @@ class Ui_ForgetRecord(object):
         self.pushButton_2.setObjectName("pushButton_2")
         self.tableWidget = QtWidgets.QTableWidget(ForgetRecord)
         self.tableWidget.setGeometry(QtCore.QRect(3, 35, 950, 231))
-        self.tableWidget.setStyleSheet("")
+        self.tableWidget.setStyleSheet("QTableWidget::item:selected {\n"
+"    background-color:#C1272D;\n"
+"}\n"
+"")
         self.tableWidget.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.tableWidget.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContentsOnFirstShow)
