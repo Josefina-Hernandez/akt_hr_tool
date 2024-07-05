@@ -82,20 +82,133 @@ import pymysql
 import ftplib
 import subprocess
 
-"""class Tipwindow(QWidget, Ui_Tipwindow):
-    super(Tipwindow, self).__init__()
-    self.setupUi(self)
+class Tipwindow(QWidget, Ui_Tipwindow):
+    def __init__(self):
+        super(Tipwindow, self).__init__()
+        self.setupUi(self)
 
-class login_thread(QThread):
-    pass"""
+class Login_Thread(QThread):
+    tipwindow_show = pyqtSignal()
+    tipwindow_close = pyqtSignal()
+    message_box = pyqtSignal(str, str, str)
+    update_tiplabel = pyqtSignal(str)
+    send_id = pyqtSignal(int)
+    to_main_win = pyqtSignal(str)
+
+    def __init__(self, lineEdit, lineEdit_2, comboBox):
+        super(Login_Thread, self).__init__()
+        self.lineEdit = lineEdit
+        self.lineEdit_2 = lineEdit_2
+        self.comboBox = comboBox
+
+    def run(self):
+        self.tipwindow_show.emit()
+        self.update_tiplabel.emit('loading...')
+        global DB
+        try:
+            DB.close()
+        except:
+            pass
+        try:
+            DB = pymysql.connect(host='210.1.31.3',
+                                 user='hr',
+                                 port=3306,
+                                 passwd='gwP6xTsA',
+                                 db='akaganeHR')
+        except pymysql.err.OperationalError:
+            #QMessageBox.critical(self, 'Network Error', 'Can not connect to the server, please check your network!')
+            self.message_box.emit('critical', 'Network Error', 'Can not connect to the server, please check your network!')
+            self.tipwindow_close.emit()
+            return
+
+        self.cursor_version = DB.cursor()
+        SQL = """SELECT VERSION FROM version_control WHERE ID=%s"""
+        self.cursor_version.execute(SQL, (1))
+        results=self.cursor_version.fetchall()
+        self.cursor_version.close()
+        if results == ():
+            #QMessageBox.information(self, 'Info' , 'Sorry, the system is under maintenance, please try it later...')
+            self.message_box.emit('information', 'Info' , 'Sorry, the system is under maintenance, please try it later...')
+            self.tipwindow_close.emit()
+            return
+        version=results[0][0]
+        if version==None:
+            #QMessageBox.information(self, 'Info', 'Sorry, the system and database is under maintenance, please try it later...')
+            self.message_box.emit('information', 'Info', 'Sorry, the system and database is under maintenance, please try it later...')
+            self.tipwindow_close.emit()
+            return
+
+        current_version = CURRENT_VER
+        if current_version < version:
+            #QMessageBox.information(self, 'Version Too Old', f'Sorry, the version you are using is too old, please update to version {version} first!')
+            self.message_box.emit('information', 'Version Too Old', f'Sorry, the version you are using is too old, please update to version {version} first!')
+            self.tipwindow_close.emit()
+            return
+
+        self.cursor = DB.cursor()
+
+        self.id = int(str(self.lineEdit.text()).strip())
+        #global ID
+        #ID = self.id
+        self.send_id.emit(self.id)
+        self.password = self.lineEdit_2.text()
+        if not str(self.id).isdigit():
+            #QMessageBox.warning(self, 'Warning', 'Wrong user ID!')
+            self.message_box.emit('warning', 'Warning', 'Wrong user ID!')
+            self.cursor.close()
+            self.tipwindow_close.emit()
+            return
+
+        sql = """SELECT PASSWORD, PRIORITY FROM login_pass WHERE ID=%s"""
+        self.cursor.execute(sql, (self.id))
+        pass_check = self.cursor.fetchall()
+        if pass_check == ():
+            #QMessageBox.warning(self, 'Warning', 'Wrong user ID!')
+            self.message_box.emit('warning', 'Warning', 'Wrong user ID!')
+            # print('Wrong user id!')
+            self.cursor.close()
+            self.tipwindow_close.emit()
+
+            return
+        if self.password == pass_check[0][0]:
+            if self.comboBox.currentText() == 'Administrator':
+                if pass_check[0][1] == 'admin':
+                    #self.to_main_win(mode='admin')
+                    self.to_main_win.emit('admin')
+                else:
+                    #QMessageBox.warning(self, 'warning',
+                    #                    'Sorry, you do not have the administration authority, please select the "Normal" mode.')
+                    self.message_box.emit('warning', 'Warning',
+                                        'Sorry, you do not have the administration authority, please select the "Normal" mode.')
+
+            elif self.comboBox.currentText() == 'HR Approver':
+                if pass_check[0][1] == 'admin':
+                    #self.to_main_win(mode='hr_approver')
+                    self.to_main_win.emit('hr_approver')
+                else:
+                    #QMessageBox.warning(self, 'warning',
+                    #                    'Sorry, you do not have the HR-approving authority, please select the "Normal" mode.')
+                    self.message_box.emit('warning', 'Warning',
+                                        'Sorry, you do not have the HR-approving authority, please select the "Normal" mode.')
+            else:
+                #self.to_main_win(mode='normal')
+                self.to_main_win.emit('normal')
+
+        else:
+            #QMessageBox.warning(self, 'Warning', 'Wrong password!')
+            self.message_box.emit('warning', 'Warning', 'Wrong password!')
+            # print('Wrong password!')
+
+        self.cursor.close()
+        self.tipwindow_close.emit()
 
 class loginWindow(QMainWindow, Ui_loginWindow):
     def __init__(self):
         super(loginWindow, self).__init__()
         self.setupUi(self)
 
-        self.label_7.setText('Developed in 2020  Ver.2.9')
-        self.label_2.setText('HR Information System V2.9')
+        self.label_7.setText('Developed in 2020  Ver.3.1')
+        self.label_2.setText('HR Information System V3.1')
 
         self.id = ''
         self.pushButton.clicked.connect(self.login)
@@ -221,6 +334,30 @@ class loginWindow(QMainWindow, Ui_loginWindow):
         self.upgrade.start()
         self.monitor_show()
 
+    def receive_id(self, id):
+        self.id = str(id)
+        global ID
+        ID = self.id
+
+    def message_box(self, type, title, text):
+        if type == 'critical':
+            QMessageBox.critical(self, title, text)
+        elif type == 'information':
+            QMessageBox.information(self, title, text)
+        elif type == 'warning':
+            QMessageBox.warning(self, title, text)
+
+    def update_tiplabel(self, text):
+        Tipwindow.label.setText(text)
+
+    def tipwindow_show(self):
+        Tipwindow.show()
+        self.setEnabled(False)
+
+    def tipwindow_close(self):
+        Tipwindow.destroy()
+        self.setEnabled(True)
+
     def monitor_show(self):
         Monitor.show()
         Monitor.initializing()
@@ -232,7 +369,18 @@ class loginWindow(QMainWindow, Ui_loginWindow):
     def login(self):
         self.pushButton.setAttribute(Qt.WA_UnderMouse, False)
 
-        global DB
+        self.login_thread=Login_Thread(lineEdit=self.lineEdit, lineEdit_2=self.lineEdit_2, comboBox=self.comboBox)
+        self.login_thread.tipwindow_show.connect(self.tipwindow_show)
+        self.login_thread.tipwindow_close.connect(self.tipwindow_close)
+        self.login_thread.message_box.connect(self.message_box)
+        self.login_thread.update_tiplabel.connect(self.update_tiplabel)
+        self.login_thread.send_id.connect(self.receive_id)
+        self.login_thread.to_main_win.connect(self.to_main_win)
+
+
+        self.login_thread.start()
+
+        """global DB
         try:
             DB.close()
         except:
@@ -247,9 +395,9 @@ class loginWindow(QMainWindow, Ui_loginWindow):
             QMessageBox.critical(self, 'Network Error', 'Can not connect to the server, please check your network!')
             return
 
-        self.cursor_version = DB.cursor()
-        SQL = """SELECT VERSION FROM version_control WHERE ID=%s"""
-        self.cursor_version.execute(SQL, (1))
+        self.cursor_version = DB.cursor()"""
+        #SQL = """SELECT VERSION FROM version_control WHERE ID=%s"""
+        """self.cursor_version.execute(SQL, (1))
         results=self.cursor_version.fetchall()
         self.cursor_version.close()
         if results == ():
@@ -273,10 +421,10 @@ class loginWindow(QMainWindow, Ui_loginWindow):
             QMessageBox.warning(self, 'Warning', 'Wrong user ID!')
             self.cursor.close()
 
-            return
+            return"""
 
-        sql = """SELECT PASSWORD, PRIORITY FROM login_pass WHERE ID=%s"""
-        self.cursor.execute(sql, (self.id))
+        #sql = """SELECT PASSWORD, PRIORITY FROM login_pass WHERE ID=%s"""
+        """self.cursor.execute(sql, (self.id))
         pass_check = self.cursor.fetchall()
         if pass_check == ():
             QMessageBox.warning(self, 'Warning', 'Wrong user ID!')
@@ -306,7 +454,7 @@ class loginWindow(QMainWindow, Ui_loginWindow):
             QMessageBox.warning(self, 'Warning', 'Wrong password!')
             # print('Wrong password!')
 
-        self.cursor.close()
+        self.cursor.close()"""
 
     def to_main_win(self, mode):
         global ID
@@ -469,10 +617,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def to_timecard(self):
         self.pushButton.setAttribute(Qt.WA_UnderMouse, False)
+        MainWindow.destroy()
         TimeCard.show()
         TimeCard.startTimer()
         TimeCard.calendarWidget.setFocus()
-        MainWindow.destroy()
 
     def to_passchange(self):
         self.pushButton_8.setAttribute(Qt.WA_UnderMouse, False)
@@ -634,8 +782,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             DB.close()
         sys.exit()
 
+class NTP_Get_DateTime(QThread):
+    tipwindow_show = pyqtSignal()
+    tipwindow_close = pyqtSignal()
+    update_tiplabel = pyqtSignal(str)
+    time_signal = pyqtSignal(datetime.datetime)
+
+    def __init__(self):
+        super(NTP_Get_DateTime, self).__init__()
+        self.NTP = NTP_DateTime()
+
+    def run(self):
+        self.update_tiplabel.emit('Synchronizing NTP time...')
+        self.tipwindow_show.emit()
+        t0 = self.NTP.get_datetime()
+        self.time_signal.emit(t0)
+        self.tipwindow_close.emit()
 
 class TimeCard(QMainWindow, Ui_TimeCard):
+
     def __init__(self):
         super(TimeCard, self).__init__()
         self.setupUi(self)
@@ -663,6 +828,16 @@ class TimeCard(QMainWindow, Ui_TimeCard):
         self.pushButton_7.clicked.connect(self.to_applylateclockin)
         self.pushButton_3.clicked.connect(self.to_forgetrecord)
         self.pushButton_4.clicked.connect(self.export_excel)
+
+        self.ntp_thread = NTP_Get_DateTime()
+        self.ntp_thread.tipwindow_show.connect(self.tipwindow_show)
+        self.ntp_thread.tipwindow_close.connect(self.tipwindow_close)
+        self.ntp_thread.update_tiplabel.connect(self.update_tiplabel)
+        self.ntp_thread.time_signal.connect(self.get_t0)
+        self.ntp_thread.finished.connect(self.ntp_thread_finished)
+
+        self.t0 = datetime.datetime.now()
+        self.t = datetime.datetime.now()
 
     def export_excel(self):
         self.calendarWidget.setFocus()
@@ -1635,8 +1810,9 @@ class TimeCard(QMainWindow, Ui_TimeCard):
 
     def showtime(self):
         if (self.t - self.t0).seconds == 600:
-            self.t0 = self.NTP.get_datetime()
-            self.t = self.t0
+            #self.t0 = self.NTP.get_datetime()
+            self.ntp_thread.start()
+            #self.t = self.t0
             # print('Reset time!', self.t0.strftime('%H:%M:%S'))
         self.t += datetime.timedelta(seconds=1)
         _time = self.t.strftime('%H:%M:%S')
@@ -1646,9 +1822,25 @@ class TimeCard(QMainWindow, Ui_TimeCard):
         self.label_9.setText(_date)
 
     def startTimer(self):
-        self.t0 = self.NTP.get_datetime()
+        #self.t0 = self.NTP.get_datetime()
+        self.ntp_thread.start()
+        #self.timer.start(1000)
+
+    def get_t0(self, t0):
+        self.t0 = t0
+
+    def ntp_thread_finished(self):
         self.t = self.t0
         self.timer.start(1000)
+
+    def update_tiplabel(self, text):
+        Tipwindow.label.setText(text)
+
+    def tipwindow_show(self):
+        Tipwindow.show()
+
+    def tipwindow_close(self):
+        Tipwindow.destroy()
 
     def quit(self):
         TimeCard.close()
@@ -1701,6 +1893,8 @@ class AskForLeave(QMainWindow, Ui_AskForLeave):
         self.dateEdit_6.dateTimeChanged.connect(self.download_data)
         self.comboBox_6.currentTextChanged.connect(self.download_data)
         self.pushButton_16.setVisible(False)
+
+        self.tabWidget.removeTab(self.tabWidget.indexOf(self.tab_2))
 
         self.tabWidget.currentChanged.connect(self.tableview)
 
@@ -1779,7 +1973,7 @@ class AskForLeave(QMainWindow, Ui_AskForLeave):
             ob.setGeometry(sizes[0], sizes[1], sizes[2], sizes[3])
 
         # print(self.tabWidget.currentIndex())
-        if self.tabWidget.currentIndex() == 2:
+        if self.tabWidget.currentIndex() == 1:
             width0 = W_LEAVE
             height0 = H_LEAVE
             self.desktop = QApplication.desktop()
@@ -3648,12 +3842,12 @@ class BookMeetingRoom(QMainWindow, Ui_BookMeetingRoom):
         #print(meeting_dt, type(meeting_dt))
         self.cursor = DB.cursor()
         sql = """SELECT * FROM book_meeting_room_ WHERE MEETING_DT=%s"""
-        #try:
-            #self.cursor.execute(sql, (meeting_dt))
-        #except pymysql.err.OperationalError:
-        reconnect_DB(self)
-        self.cursor=DB.cursor()
-        self.cursor.execute(sql, (meeting_dt))
+        try:
+            self.cursor.execute(sql, (meeting_dt))
+        except pymysql.err.OperationalError:
+            reconnect_DB(self)
+            self.cursor=DB.cursor()
+            self.cursor.execute(sql, (meeting_dt))
 
         res = self.cursor.fetchall()
         if res == ():
@@ -4643,8 +4837,10 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                 current_to = 9999
                 current_po = 'PA'
             else:  # 如果DM和MD不是同一人
-                current_to = res[0][2]
-                current_po = 'MD'
+                #current_to = res[0][2]
+                #current_po = 'MD'
+                current_to = 9999
+                current_po = 'PA'
 
         else:
             current_to = 9999
@@ -4694,7 +4890,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                     pass
                 else:
                     an_days=res[0][0]
-                    an_days-=during_
+                    an_days-=float(during_)
                     SQL="""UPDATE akt_staff_ SET AN_DAYS=%s WHERE ID=%s"""
                     self.cursor_calc.execute(SQL, (an_days, staff_id_))
                     DB.commit()
@@ -4708,7 +4904,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                     pass
                 else:
                     sick_days = res[0][0]
-                    sick_days -= during_
+                    sick_days -= float(during_)
                     SQL = """UPDATE akt_staff_ SET SICK_DAYS=%s WHERE ID=%s"""
                     self.cursor_calc.execute(SQL, (sick_days, staff_id_))
                     DB.commit()
@@ -4736,7 +4932,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                     pass
                 else:
                     personal_days = res[0][0]
-                    personal_days -= during_
+                    personal_days -= float(during_)
                     SQL = """UPDATE akt_staff_ SET PERSONAL_DAYS=%s WHERE ID=%s"""
                     self.cursor_calc.execute(SQL, (personal_days, staff_id_))
                     DB.commit()
@@ -5023,8 +5219,10 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
                 current_to = 9999
                 current_po = 'PA'
             else:  # 如果DM和MD不是同一人
-                current_to = res[0][2]
-                current_po = 'MD'
+                #current_to = res[0][2]
+                #current_po = 'MD'
+                current_to = 9999
+                current_po = 'PA'
 
         else:
             current_to = 9999
@@ -5774,6 +5972,23 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         self.checkBox.setChecked(False)
         self.label_31.setText('')
 
+        clockin = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_2.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        clockout = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_3.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+
+        data_pre_input = [None, None, None, None, None, None, None, None, None]
+
+        data_pre_input[2] = clockin
+        data_pre_input[3] = clockout
+
+        data_set = calculate_without_approved_ot(data_line=data_pre_input)
+        work_time = data_set[0]
+        over_time = data_set[1]
+        self.textEdit_3.setText(str(work_time))
+        self.textEdit_4.setText(str(over_time))
+
+
         self.timeEdit_2.timeChanged.connect(self.time_stamp_check)
         self.timeEdit_3.timeChanged.connect(self.time_stamp_check)
         self.timeEdit_4.timeChanged.connect(self.time_stamp_check)
@@ -5914,6 +6129,8 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
               f'In-1: {time_func(in1)}\n' \
               f'Out-2: {time_func(out2)}\n' \
               f'In-2: {time_func(in2)}\n' \
+              f'Work time: {self.textEdit_3.toPlainText()}\n' \
+              f'OT time: {self.textEdit_4.toPlainText()}\n' \
               f'Remarks: {remarks}\n'
         a = QMessageBox.question(self, 'Confirmation', msm)
         if a == QMessageBox.No:
@@ -6050,6 +6267,9 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         if self.checkBox_3.isChecked()==False or self.checkBox_4.isChecked()==False:
             self.checkBox.setChecked(False)
             self.checkBox.setEnabled(False)
+
+            self.textEdit_3.setText('-')
+            self.textEdit_4.setText('-')
         else:
             self.checkBox.setEnabled(True)
 
@@ -6075,23 +6295,76 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         in_2 = int(self.timeEdit_7.text().replace(':', ''))
         out_=int(self.timeEdit_3.text().replace(':',''))
 
+        clockin = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_2.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        clockout = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_3.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        out1 = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_4.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        in1 = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_5.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        out2 = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_6.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        in2 = datetime.datetime.strptime(
+            self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_7.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+
+        data_pre_input = [None, None, None, None, None, None, None, None, None]
+
+        data_pre_input[2] = clockin
+        data_pre_input[3] = clockout
+        data_pre_input[4] = out1
+        data_pre_input[5] = in1
+        data_pre_input[6] = out2
+        data_pre_input[7] = in2
+
         if self.checkBox.isChecked()==False:
             if not in_<out_:
                 self.label_31.setText('Please input the correct time range!')
+                self.textEdit_3.setText('-')
+                self.textEdit_4.setText('-')
             else:
                 self.label_31.setText('')
+                data_pre_input[4] = None
+                data_pre_input[5] = None
+                data_pre_input[6] = None
+                data_pre_input[7] = None
+
+                data_set = calculate_without_approved_ot(data_line=data_pre_input)
+                work_time = data_set[0]
+                over_time = data_set[1]
+                self.textEdit_3.setText(str(work_time))
+                self.textEdit_4.setText(str(over_time))
 
         else:
             if self.checkBox_2.isChecked()==False:
                 if not in_<out_1<in_1<out_:
                     self.label_31.setText('Please input the correct time range!')
+                    self.textEdit_3.setText('-')
+                    self.textEdit_4.setText('-')
                 else:
                     self.label_31.setText('')
+                    data_pre_input[6] = None
+                    data_pre_input[7] = None
+
+                    data_set = calculate_without_approved_ot(data_line=data_pre_input)
+                    work_time = data_set[0]
+                    over_time = data_set[1]
+                    self.textEdit_3.setText(str(work_time))
+                    self.textEdit_4.setText(str(over_time))
+
             else:
                 if not in_<out_1<in_1<out_2<in_2<out_:
                     self.label_31.setText('Please input the correct time range!')
+                    self.textEdit_3.setText('-')
+                    self.textEdit_4.setText('-')
                 else:
                     self.label_31.setText('')
+
+                    data_set = calculate_without_approved_ot(data_line=data_pre_input)
+                    work_time = data_set[0]
+                    over_time = data_set[1]
+                    self.textEdit_3.setText(str(work_time))
+                    self.textEdit_4.setText(str(over_time))
 
     def if_in_out_1(self):
         if self.checkBox.isChecked():
@@ -7842,8 +8115,10 @@ class Ot_All_Accepted(QThread):
                     current_to = 9999
                     current_po = 'PA'
                 else:  # 如果DM和MD不是同一人
-                    current_to = res[0][2]
-                    current_po = 'MD'
+                    #current_to = res[0][2]
+                    #current_po = 'MD'
+                    current_to = 9999
+                    current_po = 'PA'
 
             else:
                 current_to = 9999
@@ -7971,8 +8246,10 @@ class Leave_All_Accepted(QThread):
                     current_to = 9999
                     current_po = 'PA'
                 else:  # 如果DM和MD不是同一人
-                    current_to = res[0][2]
-                    current_po = 'MD'
+                    #current_to = res[0][2]
+                    #current_po = 'MD'
+                    current_to = 9999
+                    current_po = 'PA'
 
             else:
                 current_to = 9999
@@ -8020,7 +8297,7 @@ class Leave_All_Accepted(QThread):
                         pass
                     else:
                         an_days = res[0][0]
-                        an_days -= during_
+                        an_days -= float(during_)
                         SQL = """UPDATE akt_staff_ SET AN_DAYS=%s WHERE ID=%s"""
                         self.cursor_calc.execute(SQL, (an_days, staff_id_))
                         DB.commit()
@@ -8034,7 +8311,7 @@ class Leave_All_Accepted(QThread):
                         pass
                     else:
                         sick_days = res[0][0]
-                        sick_days -= during_
+                        sick_days -= float(during_)
                         SQL = """UPDATE akt_staff_ SET SICK_DAYS=%s WHERE ID=%s"""
                         self.cursor_calc.execute(SQL, (sick_days, staff_id_))
                         DB.commit()
@@ -8062,7 +8339,7 @@ class Leave_All_Accepted(QThread):
                         pass
                     else:
                         personal_days = res[0][0]
-                        personal_days -= during_
+                        personal_days -= float(during_)
                         SQL = """UPDATE akt_staff_ SET PERSONAL_DAYS=%s WHERE ID=%s"""
                         self.cursor_calc.execute(SQL, (personal_days, staff_id_))
                         DB.commit()
@@ -8412,6 +8689,318 @@ def calculate_worktime(data_line):
 
     return [work_time, over_time, approved_ot]
 
+def calculate_without_approved_ot(data_line):
+    day_lag = data_line[8]
+
+    clock_out = data_line[3]
+    if clock_out == None:
+        clock_out = '-'
+
+    clock_in = data_line[2]
+    try:
+        out1 = data_line[4]
+    except:
+        out1 = '-'
+    if out1 == None:
+        out1 = '-'
+    try:
+        in1 = data_line[5]
+    except:
+        in1 = '-'
+    if in1 == None:
+        in1 = '-'
+    try:
+        out2 = data_line[6]
+    except:
+        out2 = '-'
+    if out2 == None:
+        out2 = '-'
+    try:
+        in2 = data_line[7]
+    except:
+        in2 = '-'
+    if in2 == None:
+        in2 = '-'
+
+    if clock_out == '-':
+        work_time = '-'
+        over_time = '-'
+    # ---------------------计算实际作业时间
+    else:
+        if int(clock_in.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
+            # 1
+            if int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
+                work_time = (clock_out - clock_in).seconds
+            # 2
+            elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1230'):
+                work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
+                                                        '%Y%m%d%H%M') - clock_in).seconds
+            # 3
+            elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500'):
+                work_time = (clock_out - clock_in).seconds
+                work_time -= 3600
+            # 4
+            elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                    clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515'):
+                work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                        '%Y%m%d%H%M') - clock_in).seconds
+                work_time -= 3600
+            # 5
+            else:
+                work_time = (clock_out - clock_in).seconds
+                work_time -= 4500
+
+        elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
+                clock_in.strftime('%Y%m%d') + '1230'):
+            # 6
+            if int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1230'):
+                work_time = 0
+            # 7
+            elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1500'):
+                work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
+                                                                    '%Y%m%d%H%M')).seconds
+            # 8
+            elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1515'):
+                work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                        '%Y%m%d%H%M') - datetime.datetime.strptime(
+                    clock_in.strftime('%Y%m%d') + '1230',
+                    '%Y%m%d%H%M')).seconds
+            # 9
+            else:
+                work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
+                                                                    '%Y%m%d%H%M')).seconds
+                work_time -= 900
+
+        elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
+                clock_in.strftime('%Y%m%d') + '1500'):
+            # 10
+            if int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1500'):
+                work_time = (clock_out - clock_in).seconds
+            # 11
+            elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1515'):
+                work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                        '%Y%m%d%H%M') - clock_in).seconds
+            # 12
+            else:
+                work_time = (clock_out - clock_in).seconds
+                work_time -= 900
+
+        elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
+                clock_in.strftime('%Y%m%d') + '1515'):
+            # 13
+            if int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
+                    clock_in.strftime('%Y%m%d') + '1515'):
+                work_time = 0
+            # 14
+            else:
+                work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
+                                                                    '%Y%m%d%H%M')).seconds
+        else:
+            work_time = (clock_out - clock_in).seconds
+
+        # ------------------计算离岗累计时间
+        space_time1 = 0
+        space_time2 = 0
+        if out1 != '-' and in1 != '-':
+            # 1
+            if int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
+                space_time1 = (in1 - out1).seconds
+            # 2
+            elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
+                space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
+                                                          '%Y%m%d%H%M') - out1).seconds
+            # 3
+            elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
+                space_time1 = (in1 - out1).seconds - 3600
+            # 4
+            elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                          '%Y%m%d%H%M') - out1).seconds - 3600
+            # 5
+            elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time1 = (in1 - out1).seconds - 3600 - 900
+            # 6
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
+                space_time1 = 0
+            # 7
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
+                space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
+                                                                '%Y%m%d%H%M')).seconds
+            # 8
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                          '%Y%m%d%H%M') - datetime.datetime.strptime(
+                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+            # 9
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
+                in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
+                                                                '%Y%m%d%H%M')).seconds - 900
+            # 10
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
+                space_time1 = (in1 - out1).seconds
+            # 11
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                          '%Y%m%d%H%M') - out1).seconds
+            # 12
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
+                in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time1 = (in1 - out1).seconds - 900
+            # 13
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
+                    int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time1 = 0
+            # 14
+            elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                    out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
+                in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
+                                                                '%Y%m%d%H%M')).seconds
+            # 15
+            else:
+                space_time1 = (in1 - out1).seconds
+
+        # -----------------out2 in2
+        if out2 != '-' and in2 != '-':
+            # 1
+            if int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
+                space_time2 = (in2 - out2).seconds
+            # 2
+            elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
+                space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
+                                                          '%Y%m%d%H%M') - out2).seconds
+            # 3
+            elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
+                space_time2 = (in2 - out2).seconds - 3600
+            # 4
+            elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                          '%Y%m%d%H%M') - out2).seconds - 3600
+            # 5
+            elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time2 = (in2 - out2).seconds - 3600 - 900
+            # 6
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
+                space_time2 = 0
+            # 7
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
+                space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
+                                                                '%Y%m%d%H%M')).seconds
+            # 8
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                          '%Y%m%d%H%M') - datetime.datetime.strptime(
+                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+            # 9
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
+                in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
+                                                                '%Y%m%d%H%M')).seconds - 900
+            # 10
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
+                space_time2 = (in2 - out2).seconds
+            # 11
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
+                                                          '%Y%m%d%H%M') - out2).seconds
+            # 12
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
+                in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time2 = (in2 - out2).seconds - 900
+            # 13
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
+                    int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
+                space_time2 = 0
+            # 14
+            elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
+                    out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
+                in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
+                space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
+                                                                '%Y%m%d%H%M')).seconds
+            # 15
+            else:
+                space_time2 = (in2 - out2).seconds
+
+        work_time -= space_time1
+        work_time -= space_time2
+        # --------------------------如过午夜加上一天
+        #if day_lag == 1:
+           # work_time += 86400   删除逻辑错误代码
+
+        over_time = work_time - 28800
+        if over_time < 0:
+            over_time = 0
+
+    if work_time != '-':
+        work_time = round(int(work_time) / 3600, 2)
+    if over_time != '-':
+
+        over_time = round(int(over_time) / 3600, 2)
+
+    return [work_time, over_time]
+
 def query_email(id):
     #==========================Updated on 12/9/2023
     if id == 8888:
@@ -8484,7 +9073,7 @@ def WriteUpdateCMD(new_name, old_name):
 if __name__ == '__main__':
     DB = None
     ID = -1
-    CURRENT_VER=2.9
+    CURRENT_VER=3.1
     HR_MODE = 0
 
     app = QApplication(sys.argv)
@@ -8511,5 +9100,6 @@ if __name__ == '__main__':
     CalendarSetting = CalendarSetting()
     OTSheet = OTSheet()
     Monitor = Monitor()
+    Tipwindow = Tipwindow()
 
     sys.exit(app.exec_())

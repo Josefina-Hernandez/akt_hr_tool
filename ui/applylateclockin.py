@@ -205,7 +205,7 @@ class Ui_ApplyLateClockIn(object):
 "}")
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(ApplyLateClockIn)
-        self.label_3.setGeometry(QtCore.QRect(270, 270, 181, 31))
+        self.label_3.setGeometry(QtCore.QRect(280, 270, 181, 31))
         font = QtGui.QFont()
         font.setFamily("Microsoft JhengHei UI")
         font.setPointSize(11)
@@ -219,7 +219,7 @@ class Ui_ApplyLateClockIn(object):
 "}")
         self.label_3.setObjectName("label_3")
         self.textEdit = QtWidgets.QTextEdit(ApplyLateClockIn)
-        self.textEdit.setGeometry(QtCore.QRect(270, 300, 330, 150))
+        self.textEdit.setGeometry(QtCore.QRect(280, 300, 320, 150))
         self.textEdit.setStyleSheet("QTextEdit\n"
 "{\n"
 "    /*字体为微软雅黑*/\n"

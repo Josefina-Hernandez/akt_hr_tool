@@ -29,17 +29,14 @@
    </property>
    <property name="font">
     <font>
-     <family>Microsoft JhengHei UI</family>
-     <pointsize>10</pointsize>
-     <weight>75</weight>
-     <bold>true</bold>
+     <pointsize>-1</pointsize>
     </font>
    </property>
    <property name="styleSheet">
     <string notr="true">QLabel
 {
 	color:#9D0B0F;
-	font-size: 10pt;
+	font-size: 17px;
 }</string>
    </property>
    <property name="text">

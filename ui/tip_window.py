@@ -19,17 +19,14 @@ class Ui_Tipwindow(object):
 "    background-color: white;\n"
 "}")
         self.label = QtWidgets.QLabel(Tipwindow)
-        self.label.setGeometry(QtCore.QRect(20, 110, 360, 31))
+        self.label.setGeometry(QtCore.QRect(20, 110, 381, 31))
         font = QtGui.QFont()
-        font.setFamily("Microsoft JhengHei UI")
-        font.setPointSize(10)
-        font.setBold(True)
-        font.setWeight(75)
+        font.setPointSize(-1)
         self.label.setFont(font)
         self.label.setStyleSheet("QLabel\n"
 "{\n"
 "    color:#9D0B0F;\n"
-"    font-size: 10pt;\n"
+"    font-size: 17px;\n"
 "}")
         self.label.setObjectName("label")
         self.label_2 = QtWidgets.QLabel(Tipwindow)
@@ -44,7 +41,7 @@ class Ui_Tipwindow(object):
 "    \n"
 "    color:white;\n"
 "    /*背景颜色*/  \n"
-"    background-color:#EC1C24;\n"
+"    background-color:#C1272D;\n"
 "\n"
 "}\n"
 "")
@@ -65,4 +62,4 @@ class Ui_Tipwindow(object):
         _translate = QtCore.QCoreApplication.translate
         Tipwindow.setWindowTitle(_translate("Tipwindow", "Tip"))
         self.label.setText(_translate("Tipwindow", "Tip window"))
-import ui_highDPI.Logo_AKT_rc
+import ui.Logo_AKT_rc

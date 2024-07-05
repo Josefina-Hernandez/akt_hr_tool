@@ -217,7 +217,7 @@ class Ui_ForgetRecord(object):
 "}")
         self.label_2.setObjectName("label_2")
         self.label_3 = QtWidgets.QLabel(ForgetRecord)
-        self.label_3.setGeometry(QtCore.QRect(370, 270, 181, 31))
+        self.label_3.setGeometry(QtCore.QRect(550, 270, 181, 31))
         font = QtGui.QFont()
         font.setFamily("Microsoft JhengHei UI")
         font.setPointSize(11)
@@ -231,7 +231,7 @@ class Ui_ForgetRecord(object):
 "}")
         self.label_3.setObjectName("label_3")
         self.textEdit = QtWidgets.QTextEdit(ForgetRecord)
-        self.textEdit.setGeometry(QtCore.QRect(370, 300, 330, 150))
+        self.textEdit.setGeometry(QtCore.QRect(550, 300, 190, 150))
         self.textEdit.setStyleSheet("QTextEdit\n"
 "{\n"
 "    /*字体为微软雅黑*/\n"
@@ -690,6 +690,68 @@ class Ui_ForgetRecord(object):
         self.checkBox_4.setText("")
         self.checkBox_4.setChecked(True)
         self.checkBox_4.setObjectName("checkBox_4")
+        self.label_11 = QtWidgets.QLabel(ForgetRecord)
+        self.label_11.setGeometry(QtCore.QRect(380, 370, 181, 31))
+        font = QtGui.QFont()
+        font.setFamily("Microsoft JhengHei UI")
+        font.setPointSize(11)
+        font.setBold(True)
+        font.setWeight(75)
+        self.label_11.setFont(font)
+        self.label_11.setStyleSheet("QLabel\n"
+"{\n"
+"    font-size:11pt;\n"
+"    color:rgb(111,111,111);\n"
+"}")
+        self.label_11.setObjectName("label_11")
+        self.textEdit_3 = QtWidgets.QTextEdit(ForgetRecord)
+        self.textEdit_3.setGeometry(QtCore.QRect(380, 300, 150, 31))
+        self.textEdit_3.setStyleSheet("QTextEdit\n"
+"\n"
+"{\n"
+"    /*字体为微软雅黑*/\n"
+"    font-family:Microsoft Yahei;\n"
+"    /*字体大小为20点*/\n"
+"    color:rgb(50, 50, 50);\n"
+"   font-size:10pt;\n"
+"    background-color:rgb(255, 251, 201);\n"
+"}\n"
+"")
+        self.textEdit_3.setFrameShape(QtWidgets.QFrame.Box)
+        self.textEdit_3.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.textEdit_3.setLineWidth(1)
+        self.textEdit_3.setObjectName("textEdit_3")
+        self.label_10 = QtWidgets.QLabel(ForgetRecord)
+        self.label_10.setGeometry(QtCore.QRect(380, 270, 181, 31))
+        font = QtGui.QFont()
+        font.setFamily("Microsoft JhengHei UI")
+        font.setPointSize(11)
+        font.setBold(True)
+        font.setWeight(75)
+        self.label_10.setFont(font)
+        self.label_10.setStyleSheet("QLabel\n"
+"{\n"
+"    font-size:11pt;\n"
+"    color:rgb(111,111,111);\n"
+"}")
+        self.label_10.setObjectName("label_10")
+        self.textEdit_4 = QtWidgets.QTextEdit(ForgetRecord)
+        self.textEdit_4.setGeometry(QtCore.QRect(380, 400, 150, 31))
+        self.textEdit_4.setStyleSheet("QTextEdit\n"
+"\n"
+"{\n"
+"    /*字体为微软雅黑*/\n"
+"    font-family:Microsoft Yahei;\n"
+"    /*字体大小为20点*/\n"
+"    color:rgb(50, 50, 50);\n"
+"   font-size:10pt;\n"
+"    background-color:rgb(255, 251, 201);\n"
+"}\n"
+"")
+        self.textEdit_4.setFrameShape(QtWidgets.QFrame.Box)
+        self.textEdit_4.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.textEdit_4.setLineWidth(1)
+        self.textEdit_4.setObjectName("textEdit_4")
 
         self.retranslateUi(ForgetRecord)
         self.comboBox_3.setCurrentIndex(0)
@@ -758,3 +820,5 @@ class Ui_ForgetRecord(object):
         self.checkBox.setText(_translate("ForgetRecord", "Enable In-1/Out-1"))
         self.label_31.setText(_translate("ForgetRecord", "Please input the correct time range!"))
         self.checkBox_2.setText(_translate("ForgetRecord", "Enable In-2/Out-2"))
+        self.label_11.setText(_translate("ForgetRecord", "OT Time"))
+        self.label_10.setText(_translate("ForgetRecord", "Work Time"))
