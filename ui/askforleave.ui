@@ -724,7 +724,7 @@ QLineEdit:focus
      <widget class="QLabel" name="label_9">
       <property name="geometry">
        <rect>
-        <x>380</x>
+        <x>370</x>
         <y>0</y>
         <width>170</width>
         <height>31</height>
@@ -745,7 +745,7 @@ QLineEdit:focus
 }</string>
       </property>
       <property name="text">
-       <string>Anual Leave Remains:</string>
+       <string>Annual Leave Remains:</string>
       </property>
      </widget>
      <widget class="QLabel" name="label_10">

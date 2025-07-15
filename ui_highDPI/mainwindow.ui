@@ -103,7 +103,7 @@ QPushButton:pressed
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>210</y>
+      <y>190</y>
       <width>400</width>
       <height>70</height>
      </rect>
@@ -161,7 +161,7 @@ QPushButton:pressed
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>330</y>
+      <y>290</y>
       <width>400</width>
       <height>70</height>
      </rect>
@@ -219,7 +219,7 @@ QPushButton:pressed
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>450</y>
+      <y>390</y>
       <width>400</width>
       <height>70</height>
      </rect>
@@ -568,7 +568,7 @@ QPushButton:pressed
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>620</y>
+      <y>540</y>
       <width>400</width>
       <height>50</height>
      </rect>
@@ -626,7 +626,7 @@ QPushButton:pressed
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>580</y>
+      <y>500</y>
       <width>270</width>
       <height>30</height>
      </rect>
@@ -668,6 +668,88 @@ QPushButton:pressed
     </property>
     <property name="text">
      <string>(HR administrator only)</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_10">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>620</y>
+      <width>400</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Microsoft Yahei</family>
+      <pointsize>15</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton
+{
+    /*字体为微软雅黑*/
+    font-family:Microsoft Yahei;
+    /*字体大小为20点*/
+    font-size:15pt;
+    /*字体颜色为白色*/    
+    color:white;
+    /*背景颜色*/  
+    background-color:#C1272D;
+    /*边框圆角半径为8像素*/ 
+    border-radius:10px;
+}
+
+/*按钮停留态*/
+QPushButton:hover
+{
+    /*背景颜色*/  
+    background-color:#9e1e24;
+    padding-left:-3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:-3px;
+
+}
+
+/*按钮按下态*/
+QPushButton:pressed
+{
+    /*背景颜色*/  
+    background-color:#CD5257;
+    /*左内边距为3像素，让按下时字向右移动3像素*/  
+    padding-left:3px;
+    /*上内边距为3像素，让按下时字向下移动3像素*/  
+    padding-top:3px;
+}</string>
+    </property>
+    <property name="text">
+     <string>Staff Clock In/Out List</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>40</x>
+      <y>530</y>
+      <width>30</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QLabel {
+	background-color: rgba(255, 0, 0, 255);
+	border-radius:15px;
+	color: white;
+	font-weight: bold;
+	font-size: 18px;
+	qproperty-alignment: 'AlignHCenter | AlignVCenter';
+	
+}</string>
+    </property>
+    <property name="text">
+     <string>!</string>
     </property>
    </widget>
   </widget>

@@ -30,6 +30,7 @@ if WIDTH <= 1366:
     from ui.ot_sheet import Ui_OT_Sheet
     from ui.monitor import Ui_Monitor
     from ui.tip_window import Ui_Tipwindow
+    from ui.clock_review import Ui_ClockReview
 
     W_LEAVE=831
     H_LEAVE=550
@@ -58,6 +59,7 @@ else:
     from ui_highDPI.ot_sheet import Ui_OT_Sheet
     from ui_highDPI.monitor import Ui_Monitor
     from ui_highDPI.tip_window import Ui_Tipwindow
+    from ui_highDPI.clock_review import Ui_ClockReview
 
     W_LEAVE = 1067
     H_LEAVE = 722
@@ -81,6 +83,493 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import pymysql
 import ftplib
 import subprocess
+
+
+class Exp_Monthly_Time_Card(QThread):
+    monitor_close=pyqtSignal()
+    finish_box=pyqtSignal(str, str)
+    update_label=pyqtSignal(str)
+    update_progress=pyqtSignal(int)
+    monitor_open=pyqtSignal()
+    def __init__(self, a, year, month, yearmonth, staff_ids):
+        super(Exp_Monthly_Time_Card, self).__init__()
+        self.a=a
+        self.year=year
+        self.month=month
+        self.yearmonth=yearmonth
+        self.staff_ids = staff_ids
+
+    def run(self):
+        a=self.a
+        file_path = a[0]
+
+        self.update_label.emit('Connecting to Time Card Database...')
+        self.cursor = DB.cursor()
+
+        date = QDate(self.year, self.month, 1)
+        days_in_month = date.daysInMonth()
+
+        #print(days_in_month)
+
+        dt_strs = []
+        for day_num in range(1, days_in_month + 1):
+            dt_strs.append(self.yearmonth + "%02d" % day_num)
+
+        #print(dt_strs)
+
+        data_result = []
+
+        Monitor.progressBar.setMaximum(len(dt_strs))
+        counter = 0
+        for dt_str in dt_strs:
+            counter += 1
+            self.update_progress.emit(counter)
+            self.update_label.emit(
+                f'Extracting time card data for:        Date: {dt_str}...')
+
+            dt_val = datetime.datetime.strptime(dt_str, "%Y%m%d").date()
+            #print("************************", dt_str)
+            serials = []
+            for staff_id in self.staff_ids:
+                serial = str(staff_id) + dt_str
+                serials.append(serial)
+
+            placeholders = ','.join(['%s'] * len(serials))
+            placeholders2 = ','.join(['%s'] * len(self.staff_ids))
+            params = tuple(serials) + tuple(self.staff_ids)
+            sql = f"""SELECT 
+                                       staff.ID, tc.CLOCK_IN, tc.CLOCK_OUT, tc.DAY_LAG, 
+                                       tc.OUT_1, tc.IN_1, tc.OUT_2, tc.IN_2, 
+                                       staff.NAME, staff.DIVISION, staff.EMAIL, orq.DURING, orq.OT_DT 
+                                   FROM 
+                                       akt_staff_ AS staff             
+                                   LEFT JOIN 
+                                       time_card AS tc ON tc.USER_ID=CAST(staff.ID AS CHAR) AND tc.SERIAL IN ({placeholders})
+                                   LEFT JOIN
+                                       ot_request AS orq ON tc.USER_ID=orq.USER_ID AND orq.CURRENT_TO='9999' AND orq.OT_DT={dt_str}
+
+                                   WHERE staff.ID IN ({placeholders2}) ORDER BY staff.ID ASC"""
+
+            try:
+                self.cursor.execute(sql, params)
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor = DB.cursor()
+                self.cursor.execute(sql, params)
+
+            res = self.cursor.fetchall()
+
+            res_list = []
+            for r in res:
+                # print(r)
+                data_line_for_cal = [
+                    None,
+                    r[0],
+                    r[1],
+                    r[2],
+                    r[4],
+                    r[5],
+                    r[6],
+                    r[7],
+                    r[3]
+                ]
+                if not r[1]:
+                    cal_res = ['-', '-']
+                else:
+                    cal_res = calculate_without_approved_ot(data_line=data_line_for_cal)
+                # print('**********', cal_res)
+                r_l = list(r)
+                # print(r_l[len(r_l) - 2])
+                if not r_l[len(r_l) - 2]:
+                    r_l[len(r_l) - 2] = '-'
+                res_list.append(r_l + cal_res)
+
+            for i in range(len(res_list)):
+                col = 0
+                line = []
+                for j in [0, 8, 9, 1, 2, 4, 5, 6, 7, 13, 14, 11, 10]:
+                    #print(res_list[i][j])
+                    line.append(res_list[i][j])
+                    col += 1
+                data_result.append([dt_val] + line)
+
+        self.cursor.close()
+
+        self.update_label.emit('Saving excel file...')
+        wb = xl.Workbook()
+        ws = wb.active
+        headers = ['Date', 'Staff ID', 'Staff Name', 'Division', 'Clock In', 'Clock Out', 'Out 1',
+                   'In 1', 'Out 2', 'In 2', 'Work Time', 'Over Time',
+                   'Approved OT', 'Email']
+        ws.append(headers)
+
+        for result in data_result:
+            #print(result)
+            ws.append(result)
+
+
+        wb.save(filename=file_path)
+        wb.close()
+
+        self.monitor_close.emit()
+        self.finish_box.emit('Info', 'Excel file has been created successfully!')
+
+
+class ClockReview(QMainWindow, Ui_ClockReview):
+    def __init__(self):
+        super(ClockReview, self).__init__()
+        self.setupUi(self)
+
+        self.tableWidget_3.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tableWidget_3.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+        self.pushButton_2.clicked.connect(self.quit)
+        self.calendarWidget.clicked.connect(self.show_on_table)
+        self.tableWidget_3.clicked.connect(self.show_on_left)
+        self.pushButton_3.clicked.connect(self.download_monthly_data)
+        self.pushButton.clicked.connect(self.download_daily_data)
+
+        self.textEdit_20.setStyleSheet("QTextEdit\n"
+                                       "{\n"
+                                       "    /*字体为微软雅黑*/\n"
+                                       "    font-family:Microsoft Yahei;\n"
+                                       "    /*字体大小为20点*/\n"
+                                       "    color:rgb(50, 50, 50);\n"
+                                       "   font-size:13px;\n"
+                                       "    background-color:rgb(255, 251, 201);\n"
+                                       "}")
+
+        self.daily_data = []
+        self.staff_ids = []
+
+    def monitor_show(self):
+        Monitor.show()
+        Monitor.initializing()
+        self.hide()
+
+    def finish_msgbox(self, title, text):
+        QMessageBox.information(self, title, text)
+
+    def download_monthly_data(self):
+        self.calendarWidget.setFocus()
+        year = self.calendarWidget.yearShown()
+        month = self.calendarWidget.monthShown()
+        yearmonth = str(year) + "%02d" % month
+
+        #print(yearmonth)
+
+        if self.staff_ids == []:
+            QMessageBox.information(self, 'Empty Record',
+                                    f'Staff ID list of leader {MainWindow.name} is empty!')
+            return
+
+        a = QFileDialog.getSaveFileName(self,
+                                        'Please select the excel file path.',
+                                        f'./Staff_monthly_timecard_leader_{MainWindow.name}({yearmonth})',
+                                        'Excel Files (*.xlsx);;All Files (*)')
+        if a[0] == '':
+            return
+
+        wb = xl.Workbook()
+        try:
+            wb.save(filename=a[0])
+        except PermissionError:
+            QMessageBox.critical(self, 'Permission denied!',
+                                 'Permission denied! Please close the excel file with the same filename first!')
+            wb.close()
+            return
+
+        wb.close()
+
+        self.exp_monthly_tc = Exp_Monthly_Time_Card(a=a, year=year, month=month,
+                                         yearmonth=yearmonth, staff_ids=self.staff_ids)
+        self.exp_monthly_tc.finish_box.connect(self.finish_msgbox)
+        self.exp_monthly_tc.update_label.connect(Monitor.update_text)
+        self.exp_monthly_tc.update_progress.connect(Monitor.update_progressbar)
+        self.exp_monthly_tc.monitor_close.connect(Monitor.close_monitor2)
+        self.exp_monthly_tc.monitor_open.connect(self.monitor_show)
+
+        self.exp_monthly_tc.start()
+        self.monitor_show()
+
+
+    def export_excel(self):
+        self.calendarWidget.setFocus()
+        yearmonth = str(self.calendarWidget.yearShown()) + "%02d" % self.calendarWidget.monthShown()
+
+        self.cursor_exc=DB.cursor()
+        SQL="""SELECT * FROM time_card WHERE SERIAL>%s and SERIAL<%s"""
+        try:
+            self.cursor_exc.execute(SQL, (int(str(ID)+yearmonth+'00'), int(str(ID)+yearmonth+'32') ))
+        except:
+            reconnect_DB(self)
+            self.cursor_exc = DB.cursor()
+            self.cursor_exc.execute(SQL, (int(str(ID) + yearmonth + '00'), int(str(ID) + yearmonth + '32')))
+
+        res=self.cursor_exc.fetchall()
+        self.cursor_exc.close()
+        #print(res)
+        if res==():
+            QMessageBox.information(self, 'Empty Record', f'The time card record in the year-month you selected({yearmonth}) is empty!')
+            return
+
+        a = QFileDialog.getSaveFileName(self,
+                                        'Please select the excel file path.',
+                                        f'./{MainWindow.name}\'s timecard({yearmonth})',
+                                        'Excel Files (*.xlsx);;All Files (*)')
+        if a[0] == '':
+            return
+
+        #print(a[0])
+        wb=xl.Workbook()
+        ws=wb.active
+        headers=['Series No', 'User ID', 'Clock In', 'Clock Out', 'Out 1', 'In 1', 'Out 2', 'In 2', 'Day Lag', 'Actual Work Time', 'Over Time', 'Approved OT']
+        ws.append(headers)
+        for each_line in res:
+            line_head=each_line
+            data_set=calculate_worktime(data_line=each_line)
+            worktime=data_set[0]
+            overtime=data_set[1]
+            approved_ot=data_set[2]
+            line_end=[worktime, overtime, approved_ot]
+            line_full=list(line_head)+line_end
+            ws.append(line_full)
+            #print(line_full)
+
+        try:
+            wb.save(filename=a[0])
+        except:
+            QMessageBox.critical(self, 'Error', 'Please close the excel file with the same name first!')
+            return
+        wb.close()
+        QMessageBox.information(self, 'Info', 'Excel file has been created successfully!')
+
+    def download_daily_data(self):
+        self.calendarWidget.setFocus()
+        selected_date = self.calendarWidget.selectedDate()
+        selected_dt_str = selected_date.toString('yyyyMMdd')
+
+        a = QFileDialog.getSaveFileName(self,
+                                        'Please select the excel file path.',
+                                        f'./Staff_daily_timecard_leader_{MainWindow.name}({selected_dt_str})',
+                                        'Excel Files (*.xlsx);;All Files (*)')
+        if a[0] == '':
+            return
+
+        # print(a[0])
+        wb = xl.Workbook()
+        ws = wb.active
+        headers = ['Staff ID', 'Staff Name', 'Division', 'Clock In', 'Clock Out', 'Out 1',
+                   'In 1', 'Out 2', 'In 2', 'Work Time', 'Over Time',
+                   'Approved OT', 'Email']
+        ws.append(headers)
+        data_to_add = []
+        for each_line in self.daily_data:
+            #[0, 8, 9, 1, 2, 4, 5, 6, 7, 13, 14, 11, 10]
+            data_to_add.append([
+                each_line[0],
+                each_line[8],
+                each_line[9],
+                each_line[1],
+                each_line[2],
+                each_line[4],
+                each_line[5],
+                each_line[6],
+                each_line[7],
+                each_line[13],
+                each_line[14],
+                each_line[11],
+                each_line[10],
+            ])
+
+        for data_line in data_to_add:
+            ws.append(data_line)
+
+        try:
+            wb.save(filename=a[0])
+        except:
+            QMessageBox.critical(self, 'Error', 'Please close the excel file with the same name first!')
+            return
+        wb.close()
+        QMessageBox.information(self, 'Info', 'Excel file has been created successfully!')
+
+    def quit(self):
+        ClockReview.close()
+
+    def closeEvent(self, event):
+        MainWindow.show()
+
+    def initializing(self):
+        self.show_on_table()
+
+    def show_on_table(self):
+        self.textEdit_10.setText('')
+        self.textEdit_11.setText('')
+        self.textEdit_12.setText('')
+        self.textEdit_13.setText('')
+        self.textEdit_14.setText('')
+        self.textEdit_15.setText('')
+        self.textEdit_16.setText('')
+        self.textEdit_17.setText('')
+        self.textEdit_18.setText('')
+        self.textEdit_19.setText('')
+        self.textEdit_20.setText('')
+        self.textEdit_21.setText('')
+        self.textEdit_22.setText('')
+
+        selected_dt = datetime.datetime.strptime(self.calendarWidget.selectedDate().toString('yyyy/MM/dd'), '%Y/%m/%d')
+        self.tableWidget_3.horizontalHeader().setSortIndicator(-1, Qt.AscendingOrder)
+        self.tableWidget_3.sortItems(-1)
+        self.tableWidget_3.clearContents()
+        self.tableWidget_3.setRowCount(20)
+
+        self.cursor = DB.cursor()
+
+        if HR_MODE:
+            sql = """SELECT ID FROM team_stru"""
+            try:
+                self.cursor.execute(sql)
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor = DB.cursor()
+                self.cursor.execute(sql)
+        else:
+            sql = """SELECT ID FROM team_stru WHERE LEADER_ID=%s OR DM_ID=%s OR MD_ID=%s"""
+            try:
+                self.cursor.execute(sql, (ID, ID, ID))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor = DB.cursor()
+                self.cursor.execute(sql, (ID, ID, ID))
+
+        res = self.cursor.fetchall()
+        staff_ids = []
+        for each in res:
+            staff_ids.append(each[0])
+        #print(staff_ids)
+
+        if staff_ids == []:
+            return
+
+        self.staff_ids = staff_ids
+
+        dt_str = selected_dt.strftime('%Y%m%d')
+
+        serials = []
+        for staff_id in staff_ids:
+            serial = str(staff_id) + dt_str
+            serials.append(serial)
+
+        placeholders = ','.join(['%s'] * len(serials))
+        placeholders2 = ','.join(['%s'] * len(staff_ids))
+        params = tuple(serials) + tuple(staff_ids)
+        sql = f"""SELECT 
+                    staff.ID, tc.CLOCK_IN, tc.CLOCK_OUT, tc.DAY_LAG, 
+                    tc.OUT_1, tc.IN_1, tc.OUT_2, tc.IN_2, 
+                    staff.NAME, staff.DIVISION, staff.EMAIL, orq.DURING, orq.OT_DT 
+                FROM 
+                    akt_staff_ AS staff             
+                LEFT JOIN 
+                    time_card AS tc ON tc.USER_ID=CAST(staff.ID AS CHAR) AND tc.SERIAL IN ({placeholders})
+                LEFT JOIN
+                    ot_request AS orq ON tc.USER_ID=orq.USER_ID AND orq.CURRENT_TO='9999' AND orq.OT_DT={dt_str}
+                
+                WHERE staff.ID IN ({placeholders2}) ORDER BY staff.ID ASC"""
+
+        try:
+            self.cursor.execute(sql, params)
+        except pymysql.err.OperationalError:
+            reconnect_DB(self)
+            self.cursor = DB.cursor()
+            self.cursor.execute(sql, params)
+
+        res = self.cursor.fetchall()
+
+        res_list = []
+        for r in res:
+            #print(r)
+            data_line_for_cal = [
+                None,
+                r[0],
+                r[1],
+                r[2],
+                r[4],
+                r[5],
+                r[6],
+                r[7],
+                r[3]
+            ]
+            if not r[1]:
+                cal_res = ['-', '-']
+            else:
+                cal_res = calculate_without_approved_ot(data_line=data_line_for_cal)
+            #print('**********', cal_res)
+            r_l = list(r)
+            #print(r_l[len(r_l) - 2])
+            if not r_l[len(r_l) - 2]:
+                r_l[len(r_l) - 2] = '-'
+            res_list.append(r_l + cal_res)
+
+        self.tableWidget_3.setRowCount(len(res_list))
+        for i in range(len(res_list)):
+            col = 0
+            for j in [0, 8, 9, 1, 2, 4, 5, 6, 7, 13, 14, 11, 10]:
+                self.tableWidget_3.setItem(i, col, QTableWidgetItem(str(res_list[i][j])))
+                col += 1
+            self.tableWidget_3.resizeRowToContents(i)
+        self.daily_data = res_list
+        self.tableWidget_3.resizeColumnsToContents()
+        self.tableWidget_3.setSortingEnabled(True)
+
+        self.cursor.close()
+
+    def show_on_left(self):
+        self.textEdit_10.setText('')
+        self.textEdit_11.setText('')
+        self.textEdit_12.setText('')
+        self.textEdit_13.setText('')
+        self.textEdit_14.setText('')
+        self.textEdit_15.setText('')
+        self.textEdit_16.setText('')
+        self.textEdit_17.setText('')
+        self.textEdit_18.setText('')
+        self.textEdit_19.setText('')
+        self.textEdit_20.setText('')
+        self.textEdit_21.setText('')
+        self.textEdit_22.setText('')
+
+        index = self.tableWidget_3.currentRow()
+        #try:
+        staff_id = self.tableWidget_3.item(index, 0).text()
+        staff_name = self.tableWidget_3.item(index, 1).text()
+        division = self.tableWidget_3.item(index, 2).text()
+        clock_in = self.tableWidget_3.item(index, 3).text()
+        clock_out = self.tableWidget_3.item(index, 4).text()
+        out1 = self.tableWidget_3.item(index, 5).text()
+        in1 = self.tableWidget_3.item(index, 6).text()
+        out2 = self.tableWidget_3.item(index, 7).text()
+        in2 = self.tableWidget_3.item(index, 8).text()
+        work_time = self.tableWidget_3.item(index, 9).text()
+        over_time = self.tableWidget_3.item(index, 10).text()
+        approved_ot = self.tableWidget_3.item(index, 11).text()
+        email = self.tableWidget_3.item(index, 12).text()
+        #except:
+        #    return
+
+        self.textEdit_10.setText(staff_id)
+        self.textEdit_11.setText(division)
+        self.textEdit_12.setText(clock_in)
+        self.textEdit_13.setText(out1)
+        self.textEdit_14.setText(in1)
+        self.textEdit_15.setText(out2)
+        self.textEdit_16.setText(in2)
+        self.textEdit_17.setText(clock_out)
+        self.textEdit_18.setText(work_time)
+        self.textEdit_19.setText(staff_name)
+        self.textEdit_20.setText(email)
+        self.textEdit_21.setText(over_time)
+        self.textEdit_22.setText(approved_ot)
+
 
 class Tipwindow(QWidget, Ui_Tipwindow):
     def __init__(self):
@@ -207,8 +696,8 @@ class loginWindow(QMainWindow, Ui_loginWindow):
         super(loginWindow, self).__init__()
         self.setupUi(self)
 
-        self.label_7.setText('Developed in 2020  Ver.3.1')
-        self.label_2.setText('HR Information System V3.1')
+        self.label_7.setText('Developed in 2020  Ver.3.2')
+        self.label_2.setText('HR Information System V3.2')
 
         self.id = ''
         self.pushButton.clicked.connect(self.login)
@@ -584,6 +1073,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pushButton_4.clicked.connect(self.to_bookmeetingroom)
         self.pushButton_9.clicked.connect(self.to_approvepanel)
         self.pushButton_5.clicked.connect(self.to_main_admin)
+        self.pushButton_10.clicked.connect(self.to_clocklist)
+
+    def to_clocklist(self):
+        self.pushButton_10.setAttribute(Qt.WA_UnderMouse, False)
+        ClockReview.show()
+        ClockReview.initializing()
+        ClockReview.calendarWidget.setFocus()
+        MainWindow.destroy()
 
     def to_main_admin(self):
         self.pushButton_5.setAttribute(Qt.WA_UnderMouse, False)
@@ -644,6 +1141,108 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             DB.close()
         sys.exit()
 
+    def check_unchecked_leave(self):
+        if HR_MODE:
+            SQL = """SELECT * from leave_request WHERE CURRENT_TO=%s"""
+            try:
+                self.cursor_filling.execute(SQL, (8888))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_filling = DB.cursor()
+                self.cursor_filling.execute(SQL, (8888))
+        else:
+            SQL = """SELECT * from leave_request WHERE CURRENT_TO=%s"""
+            try:
+                self.cursor_filling.execute(SQL, (ID))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_filling=DB.cursor()
+                self.cursor_filling.execute(SQL, (ID))
+
+        res = self.cursor_filling.fetchall()
+        if res == ():
+            return 0
+        else:
+            return 1
+
+    def check_unchecked_ot(self):
+        if HR_MODE:
+            SQL = """SELECT * from ot_request WHERE CURRENT_TO=%s"""
+            try:
+                self.cursor_filling.execute(SQL, (8888))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_filling = DB.cursor()
+                self.cursor_filling.execute(SQL, (8888))
+        else:
+            SQL = """SELECT * from ot_request WHERE CURRENT_TO=%s"""
+            try:
+                self.cursor_filling.execute(SQL, (ID))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_filling = DB.cursor()
+                self.cursor_filling.execute(SQL, (ID))
+
+        res = self.cursor_filling.fetchall()
+        if res == ():
+            return 0
+        else:
+            return 1
+
+    def check_unchecked_late(self):
+        if HR_MODE:
+            SQL = """SELECT * from apply_late WHERE CURRENT_TO=%s"""
+            try:
+                self.cursor_filling.execute(SQL, (8888))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_filling = DB.cursor()
+                self.cursor_filling.execute(SQL, (8888))
+        else:
+            SQL = """SELECT * from apply_late WHERE CURRENT_TO=%s"""
+            try:
+                self.cursor_filling.execute(SQL, (ID))
+            except pymysql.err.OperationalError:
+                reconnect_DB(self)
+                self.cursor_filling = DB.cursor()
+                self.cursor_filling.execute(SQL, (ID))
+
+        res = self.cursor_filling.fetchall()
+        if res == ():
+            return 0
+        else:
+            return 1
+
+
+    def check_unchecked_forget(self):
+        SQL = """SELECT * from forget_record WHERE CURRENT_TO=%s"""
+        try:
+            self.cursor_filling.execute(SQL, (ID))
+        except pymysql.err.OperationalError:
+            reconnect_DB(self)
+            self.cursor_filling = DB.cursor()
+            self.cursor_filling.execute(SQL, (ID))
+
+        res = self.cursor_filling.fetchall()
+        if res == ():
+            return 0
+        else:
+            return 1
+
+
+    def check_unchecked_apply(self):
+        self.cursor_filling = DB.cursor()
+        if_has_leave = self.check_unchecked_leave()
+        if_has_ot = self.check_unchecked_ot()
+        if_has_late = self.check_unchecked_late()
+        if_has_forget = self.check_unchecked_forget()
+        self.cursor_filling.close()
+        if 1 in [if_has_leave, if_has_ot, if_has_late, if_has_forget]:
+            self.label_3.setVisible(True)
+        else:
+            self.label_3.setVisible(False)
+
+
     def init_db(self):
         self.cursor = DB.cursor()
         sql = """SELECT NAME, POSITION FROM team_stru WHERE ID=%s"""
@@ -654,10 +1253,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.position = res[0][1]
 
         if HR_MODE:
+            self.check_unchecked_apply()
             self.label_4.setText('(HR staff only)')
             self.pushButton_9.setText('HR Approvement')
             self.pushButton_9.setEnabled(True)
             self.pushButton_9.setStyleSheet("QPushButton\n"
+                                            "{\n"
+                                            "    /*字体为微软雅黑*/\n"
+                                            "    font-family:Microsoft Yahei;\n"
+                                            "    /*字体大小为20点*/\n"
+                                            "    font-size:15pt;\n"
+                                            "    /*字体颜色为白色*/    \n"
+                                            "    color:white;\n"
+                                            "    /*背景颜色*/  \n"
+                                            "    background-color:#BF3919;\n"
+                                            "    /*边框圆角半径为8像素*/ \n"
+                                            "    border-radius:10px;\n"
+                                            "}\n"
+                                            "\n"
+                                            "/*按钮停留态*/\n"
+                                            "QPushButton:hover\n"
+                                            "{\n"
+                                            "    /*背景颜色*/  \n"
+                                            "    background-color:#9C3014;\n"
+                                            "    padding-left:-3px;\n"
+                                            "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
+                                            "    padding-top:-3px;\n"
+                                            "}\n"
+                                            "\n"
+                                            "/*按钮按下态*/\n"
+                                            "QPushButton:pressed\n"
+                                            "{\n"
+                                            "    /*背景颜色*/  \n"
+                                            "    background-color:#8D2B12;\n"
+                                            "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
+                                            "    padding-left:3px;\n"
+                                            "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
+                                            "    padding-top:3px;\n"
+                                            "}")
+            self.pushButton_10.setEnabled(True)
+            self.pushButton_10.setStyleSheet("QPushButton\n"
                                             "{\n"
                                             "    /*字体为微软雅黑*/\n"
                                             "    font-family:Microsoft Yahei;\n"
@@ -730,9 +1365,81 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                 "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
                                                 "    padding-top:3px;\n"
                                                 "}")
+                self.pushButton_10.setEnabled(False)
+                self.pushButton_10.setStyleSheet("QPushButton\n"
+                                                "{\n"
+                                                "    /*字体为微软雅黑*/\n"
+                                                "    font-family:Microsoft Yahei;\n"
+                                                "    /*字体大小为20点*/\n"
+                                                "    font-size:15pt;\n"
+                                                "    /*字体颜色为白色*/    \n"
+                                                "    color:white;\n"
+                                                "    /*背景颜色*/  \n"
+                                                "    background-color:rgb(133, 173, 173);\n"
+                                                "    /*边框圆角半径为8像素*/ \n"
+                                                "    border-radius:10px;\n"
+                                                "}\n"
+                                                "\n"
+                                                "/*按钮停留态*/\n"
+                                                "QPushButton:hover\n"
+                                                "{\n"
+                                                "    /*背景颜色*/  \n"
+                                                "    background-color:rgb(58, 0, 175);\n"
+                                                "    padding-left:-3px;\n"
+                                                "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
+                                                "    padding-top:-3px;\n"
+                                                "}\n"
+                                                "\n"
+                                                "/*按钮按下态*/\n"
+                                                "QPushButton:pressed\n"
+                                                "{\n"
+                                                "    /*背景颜色*/  \n"
+                                                "    background-color:rgb(57, 0, 122);\n"
+                                                "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
+                                                "    padding-left:3px;\n"
+                                                "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
+                                                "    padding-top:3px;\n"
+                                                "}")
+                self.label_3.setVisible(False)
             else:
+                self.check_unchecked_apply()
                 self.pushButton_9.setEnabled(True)
                 self.pushButton_9.setStyleSheet("QPushButton\n"
+                                                "{\n"
+                                                "    /*字体为微软雅黑*/\n"
+                                                "    font-family:Microsoft Yahei;\n"
+                                                "    /*字体大小为20点*/\n"
+                                                "    font-size:15pt;\n"
+                                                "    /*字体颜色为白色*/    \n"
+                                                "    color:white;\n"
+                                                "    /*背景颜色*/  \n"
+                                                "    background-color:#C1272D;\n"
+                                                "    /*边框圆角半径为8像素*/ \n"
+                                                "    border-radius:10px;\n"
+                                                "}\n"
+                                                "\n"
+                                                "/*按钮停留态*/\n"
+                                                "QPushButton:hover\n"
+                                                "{\n"
+                                                "    /*背景颜色*/  \n"
+                                                "    background-color:#9e1e24;\n"
+                                                "    padding-left:-3px;\n"
+                                                "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
+                                                "    padding-top:-3px;\n"
+                                                "}\n"
+                                                "\n"
+                                                "/*按钮按下态*/\n"
+                                                "QPushButton:pressed\n"
+                                                "{\n"
+                                                "    /*背景颜色*/  \n"
+                                                "    background-color:#CD5257;\n"
+                                                "    /*左内边距为3像素，让按下时字向右移动3像素*/  \n"
+                                                "    padding-left:3px;\n"
+                                                "    /*上内边距为3像素，让按下时字向下移动3像素*/  \n"
+                                                "    padding-top:3px;\n"
+                                                "}")
+                self.pushButton_10.setEnabled(True)
+                self.pushButton_10.setStyleSheet("QPushButton\n"
                                                 "{\n"
                                                 "    /*字体为微软雅黑*/\n"
                                                 "    font-family:Microsoft Yahei;\n"
@@ -994,25 +1701,25 @@ class TimeCard(QMainWindow, Ui_TimeCard):
             if int(clock_in.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
                 #1
                 if int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                 #2
                 elif int(clock_in.strftime('%Y%m%d') + '1130')<int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                              '%Y%m%d%H%M') - clock_in).seconds
+                                                              '%Y%m%d%H%M') - clock_in).total_seconds()
                 #3
                 elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500'):
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                     work_time -= 3600
                 #4
                 elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                         clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - clock_in).seconds
+                                                              '%Y%m%d%H%M') - clock_in).total_seconds()
                     work_time -= 3600
                 #5
                 else:
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                     work_time -= 4500
 
             elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230'):
@@ -1022,17 +1729,17 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 #7
                 elif int(clock_in.strftime('%Y%m%d') + '1230')<int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500'):
                     work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                              '%Y%m%d%H%M')).seconds
+                                                              '%Y%m%d%H%M')).total_seconds()
                 #8
                 elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1515'):
                     work_time=(datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                               '%Y%m%d%H%M') - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                              '%Y%m%d%H%M')).seconds
+                                                              '%Y%m%d%H%M')).total_seconds()
                 #9
                 else:
                     work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                        '%Y%m%d%H%M')).seconds
+                                                                        '%Y%m%d%H%M')).total_seconds()
                     work_time-=900
 
             elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -1040,15 +1747,15 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 #10
                 if int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1500'):
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                 #11
                 elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1515'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - clock_in).seconds
+                                                              '%Y%m%d%H%M') - clock_in).total_seconds()
                 #12
                 else:
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                     work_time-=900
 
             elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -1060,9 +1767,9 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 #14
                 else:
                     work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                        '%Y%m%d%H%M')).seconds
+                                                                        '%Y%m%d%H%M')).total_seconds()
             else:
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
 
             # ------------------计算离岗累计时间
             space_time1 = 0
@@ -1071,28 +1778,28 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 # 1
                 if int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                    space_time1 = (in1 - out1).seconds
+                    space_time1 = (in1 - out1).total_seconds()
                 # 2
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                              '%Y%m%d%H%M') - out1).seconds
+                                                              '%Y%m%d%H%M') - out1).total_seconds()
                 # 3
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time1 = (in1 - out1).seconds - 3600
+                    space_time1 = (in1 - out1).total_seconds() - 3600
                 # 4
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out1).seconds - 3600
+                                                              '%Y%m%d%H%M') - out1).total_seconds() - 3600
                 # 5
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time1 = (in1 - out1).seconds - 3600 - 900
+                    space_time1 = (in1 - out1).total_seconds() - 3600 - 900
                 # 6
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1105,7 +1812,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                     space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 8
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1113,31 +1820,31 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                               '%Y%m%d%H%M') - datetime.datetime.strptime(
-                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
                 # 9
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds - 900
+                                                                    '%Y%m%d%H%M')).total_seconds() - 900
                 # 10
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time1 = (in1 - out1).seconds
+                    space_time1 = (in1 - out1).total_seconds()
                 # 11
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out1).seconds
+                                                              '%Y%m%d%H%M') - out1).total_seconds()
                 # 12
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time1 = (in1 - out1).seconds - 900
+                    space_time1 = (in1 - out1).total_seconds() - 900
                 # 13
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -1149,38 +1856,38 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 15
                 else:
-                    space_time1 = (in1 - out1).seconds
+                    space_time1 = (in1 - out1).total_seconds()
 
             # -----------------out2 in2
             if out2 != '-' and in2 != '-':
                 # 1
                 if int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                    space_time2 = (in2 - out2).seconds
+                    space_time2 = (in2 - out2).total_seconds()
                 # 2
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                              '%Y%m%d%H%M') - out2).seconds
+                                                              '%Y%m%d%H%M') - out2).total_seconds()
                 # 3
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time2 = (in2 - out2).seconds - 3600
+                    space_time2 = (in2 - out2).total_seconds() - 3600
                 # 4
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out2).seconds - 3600
+                                                              '%Y%m%d%H%M') - out2).total_seconds() - 3600
                 # 5
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time2 = (in2 - out2).seconds - 3600 - 900
+                    space_time2 = (in2 - out2).total_seconds() - 3600 - 900
                 # 6
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1193,7 +1900,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                     space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 8
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1201,31 +1908,31 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                               '%Y%m%d%H%M') - datetime.datetime.strptime(
-                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
                 # 9
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds - 900
+                                                                    '%Y%m%d%H%M')).total_seconds() - 900
                 # 10
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time2 = (in2 - out2).seconds
+                    space_time2 = (in2 - out2).total_seconds()
                 # 11
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out2).seconds
+                                                              '%Y%m%d%H%M') - out2).total_seconds()
                 # 12
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time2 = (in2 - out2).seconds - 900
+                    space_time2 = (in2 - out2).total_seconds() - 900
                 # 13
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -1237,10 +1944,10 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 15
                 else:
-                    space_time2 = (in2 - out2).seconds
+                    space_time2 = (in2 - out2).total_seconds()
 
             work_time -= space_time1
             work_time -= space_time2
@@ -1369,26 +2076,26 @@ class TimeCard(QMainWindow, Ui_TimeCard):
             if int(clock_in.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
                 # 1
                 if int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                 # 2
                 elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                         clock_in.strftime('%Y%m%d') + '1230'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                            '%Y%m%d%H%M') - clock_in).seconds
+                                                            '%Y%m%d%H%M') - clock_in).total_seconds()
                 # 3
                 elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500'):
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                     work_time -= 3600
                 # 4
                 elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                         clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                            '%Y%m%d%H%M') - clock_in).seconds
+                                                            '%Y%m%d%H%M') - clock_in).total_seconds()
                     work_time -= 3600
                 # 5
                 else:
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                     work_time -= 4500
 
             elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -1401,18 +2108,18 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                         clock_in.strftime('%Y%m%d') + '1500'):
                     work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                        '%Y%m%d%H%M')).seconds
+                                                                        '%Y%m%d%H%M')).total_seconds()
                 # 8
                 elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                         clock_in.strftime('%Y%m%d') + '1515'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                             '%Y%m%d%H%M') - datetime.datetime.strptime(
                         clock_in.strftime('%Y%m%d') + '1230',
-                        '%Y%m%d%H%M')).seconds
+                        '%Y%m%d%H%M')).total_seconds()
                 # 9
                 else:
                     work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                        '%Y%m%d%H%M')).seconds
+                                                                        '%Y%m%d%H%M')).total_seconds()
                     work_time -= 900
 
             elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -1420,15 +2127,15 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 # 10
                 if int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                         clock_in.strftime('%Y%m%d') + '1500'):
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                 # 11
                 elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                         clock_in.strftime('%Y%m%d') + '1515'):
                     work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                            '%Y%m%d%H%M') - clock_in).seconds
+                                                            '%Y%m%d%H%M') - clock_in).total_seconds()
                 # 12
                 else:
-                    work_time = (clock_out - clock_in).seconds
+                    work_time = (clock_out - clock_in).total_seconds()
                     work_time -= 900
 
             elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -1440,9 +2147,9 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 # 14
                 else:
                     work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                        '%Y%m%d%H%M')).seconds
+                                                                        '%Y%m%d%H%M')).total_seconds()
             else:
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
 
             # ------------------计算离岗累计时间
             space_time1 = 0
@@ -1451,28 +2158,28 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                 # 1
                 if int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                    space_time1 = (in1 - out1).seconds
+                    space_time1 = (in1 - out1).total_seconds()
                 # 2
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                              '%Y%m%d%H%M') - out1).seconds
+                                                              '%Y%m%d%H%M') - out1).total_seconds()
                 # 3
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time1 = (in1 - out1).seconds - 3600
+                    space_time1 = (in1 - out1).total_seconds() - 3600
                 # 4
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out1).seconds - 3600
+                                                              '%Y%m%d%H%M') - out1).total_seconds() - 3600
                 # 5
                 elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time1 = (in1 - out1).seconds - 3600 - 900
+                    space_time1 = (in1 - out1).total_seconds() - 3600 - 900
                 # 6
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1485,7 +2192,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                     space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 8
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1493,31 +2200,31 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                               '%Y%m%d%H%M') - datetime.datetime.strptime(
-                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
                 # 9
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds - 900
+                                                                    '%Y%m%d%H%M')).total_seconds() - 900
                 # 10
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time1 = (in1 - out1).seconds
+                    space_time1 = (in1 - out1).total_seconds()
                 # 11
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out1).seconds
+                                                              '%Y%m%d%H%M') - out1).total_seconds()
                 # 12
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time1 = (in1 - out1).seconds - 900
+                    space_time1 = (in1 - out1).total_seconds() - 900
                 # 13
                 elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -1529,38 +2236,38 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 15
                 else:
-                    space_time1 = (in1 - out1).seconds
+                    space_time1 = (in1 - out1).total_seconds()
 
             # -----------------out2 in2
             if out2 != '-' and in2 != '-':
                 # 1
                 if int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                    space_time2 = (in2 - out2).seconds
+                    space_time2 = (in2 - out2).total_seconds()
                 # 2
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                              '%Y%m%d%H%M') - out2).seconds
+                                                              '%Y%m%d%H%M') - out2).total_seconds()
                 # 3
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time2 = (in2 - out2).seconds - 3600
+                    space_time2 = (in2 - out2).total_seconds() - 3600
                 # 4
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out2).seconds - 3600
+                                                              '%Y%m%d%H%M') - out2).total_seconds() - 3600
                 # 5
                 elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time2 = (in2 - out2).seconds - 3600 - 900
+                    space_time2 = (in2 - out2).total_seconds() - 3600 - 900
                 # 6
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1573,7 +2280,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                     space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 8
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -1581,31 +2288,31 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                               '%Y%m%d%H%M') - datetime.datetime.strptime(
-                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                        clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
                 # 9
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds - 900
+                                                                    '%Y%m%d%H%M')).total_seconds() - 900
                 # 10
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                    space_time2 = (in2 - out2).seconds
+                    space_time2 = (in2 - out2).total_seconds()
                 # 11
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                         int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                     space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                              '%Y%m%d%H%M') - out2).seconds
+                                                              '%Y%m%d%H%M') - out2).total_seconds()
                 # 12
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                    space_time2 = (in2 - out2).seconds - 900
+                    space_time2 = (in2 - out2).total_seconds() - 900
                 # 13
                 elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -1617,10 +2324,10 @@ class TimeCard(QMainWindow, Ui_TimeCard):
                         out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                     space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 # 15
                 else:
-                    space_time2 = (in2 - out2).seconds
+                    space_time2 = (in2 - out2).total_seconds()
 
             work_time -= space_time1
             work_time -= space_time2
@@ -1821,6 +2528,7 @@ class TimeCard(QMainWindow, Ui_TimeCard):
         _date = self.t.strftime('%d/%m/%Y')
         self.label_9.setText(_date)
 
+
     def startTimer(self):
         #self.t0 = self.NTP.get_datetime()
         self.ntp_thread.start()
@@ -1978,7 +2686,7 @@ class AskForLeave(QMainWindow, Ui_AskForLeave):
             height0 = H_LEAVE
             self.desktop = QApplication.desktop()
             screen_count=self.desktop.screenCount() #2 screen version updating
-            geometry = self.desktop.geometry()
+            geometry = self.desktop.screenGeometry(0)
             if screen_count==1 or screen_count==2:  #2 screen version updating
                 width1 = geometry.width()           #2 screen version updating
             else:                                   #2 screen version updating
@@ -3115,7 +3823,7 @@ class OTApplication(QMainWindow, Ui_OTApplication):
             height0 = H_OT
             self.desktop = QApplication.desktop()
             screen_count = self.desktop.screenCount()  #2 screen version updating
-            geometry = self.desktop.geometry()
+            geometry = self.desktop.screenGeometry(0)
             if screen_count == 1 or screen_count==2:                      #2 screen version updating
                 width1 = geometry.width()              #2 screen version updating
             else:                                      #2 screen version updating
@@ -3984,6 +4692,11 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         self.setupUi(self)
         self.binding_btn()
 
+        self.visible_3 = False
+        self.visible_4 = False
+        self.visible_5 = False
+        self.visible_6 = False
+
     def binding_btn(self):
         self.dateEdit.setDate(QDate.currentDate())
         month = time.strftime("%m", time.localtime(time.time()))
@@ -4067,7 +4780,7 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         height0 = H_APPROVE
         self.desktop = QApplication.desktop()
         screen_count = self.desktop.screenCount()  #2 screen version updating
-        geometry = self.desktop.geometry()
+        geometry = self.desktop.screenGeometry(0)
         if screen_count == 1 or screen_count == 2:                      #2 screen version updating
             width1 = geometry.width()              #2 screen version updating
         else:                                      #2 screen version updating
@@ -4207,6 +4920,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         res = self.cursor_filling.fetchall()
         if res == ():
             self.cursor_filling.close()
+            self.label_3.setVisible(False)
+            self.visible_3 = False
             return
 
         self.tableWidget_3.setRowCount(len(res))
@@ -4221,6 +4936,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
         self.cursor_filling.close()
         self.tableWidget_3.setSortingEnabled(True)
+        self.label_3.setVisible(True)
+        self.visible_3 = True
 
     def show_ot_contents(self):
         self.tableWidget_2.clearContents()
@@ -4249,6 +4966,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         res = self.cursor_filling.fetchall()
         if res == ():
             self.cursor_filling.close()
+            self.label_4.setVisible(False)
+            self.visible_4 = False
             return
 
         self.tableWidget_2.setRowCount(len(res))
@@ -4262,6 +4981,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
         self.cursor_filling.close()
         self.tableWidget_2.setSortingEnabled(True)
+        self.label_4.setVisible(True)
+        self.visible_4 = True
 
     def show_late_contents(self):
         self.tableWidget_4.clearContents()
@@ -4289,6 +5010,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         res = self.cursor_filling.fetchall()
         if res == ():
             self.cursor_filling.close()
+            self.label_5.setVisible(False)
+            self.visible_5 = False
             return
 
         self.tableWidget_4.setRowCount(len(res))
@@ -4303,6 +5026,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
         self.cursor_filling.close()
         self.tableWidget_4.setSortingEnabled(True)
+        self.label_5.setVisible(True)
+        self.visible_5 = True
 
     def show_forget_contents(self):
         self.tableWidget_8.clearContents()
@@ -4321,6 +5046,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         res = self.cursor_filling.fetchall()
         if res == ():
             self.cursor_filling.close()
+            self.label_6.setVisible(False)
+            self.visible_6 = False
             return
 
         self.tableWidget_8.setRowCount(len(res))
@@ -4340,6 +5067,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
 
         self.cursor_filling.close()
         self.tableWidget_8.setSortingEnabled(True)
+        self.label_6.setVisible(True)
+        self.visible_6 = True
 #-----------------------------------------------------
     def show_leave_history(self):
         self.tableWidget_3.clearContents()
@@ -4943,7 +5672,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             else:
                 mailsender.send_approved_mail(email_add=info_lst2[1],
                                               receiver_name=info_lst2[0],
-                                              mode='leave')
+                                              mode='leave',
+                                              request_id=request_id)
         # ===========================================================
 
 
@@ -5148,7 +5878,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         else:
             mailsender.send_declined_mail(email_add=info_lst2[1],
                                           receiver_name=info_lst2[0],
-                                          mode='leave')
+                                          mode='leave',
+                                          request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been declined!')
 
@@ -5263,7 +5994,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             else:
                 mailsender.send_approved_mail(email_add=info_lst2[1],
                                               receiver_name=info_lst2[0],
-                                              mode='ot')
+                                              mode='ot',
+                                              request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
 
@@ -5345,7 +6077,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         else:
             mailsender.send_declined_mail(email_add=info_lst2[1],
                                           receiver_name=info_lst2[0],
-                                          mode='ot')
+                                          mode='ot',
+                                          request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been declined!')
 
@@ -5436,7 +6169,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             else:
                 mailsender.send_approved_mail(email_add=info_lst2[1],
                                               receiver_name=info_lst2[0],
-                                              mode='late')
+                                              mode='late',
+                                              request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
 
@@ -5516,7 +6250,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         else:
             mailsender.send_declined_mail(email_add=info_lst2[1],
                                           receiver_name=info_lst2[0],
-                                          mode='late')
+                                          mode='late',
+                                          request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been declined!')
 
@@ -5654,7 +6389,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
             else:
                 mailsender.send_approved_mail(email_add=info_lst2[1],
                                               receiver_name=info_lst2[0],
-                                              mode='forget')
+                                              mode='forget',
+                                              request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been accepted!')
 
@@ -5731,7 +6467,8 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
         else:
             mailsender.send_declined_mail(email_add=info_lst2[1],
                                           receiver_name=info_lst2[0],
-                                          mode='forget')
+                                          mode='forget',
+                                          request_id=request_id)
         # ===========================================================
         QMessageBox.information(self, 'Info', 'Request has been declined!')
 
@@ -5749,6 +6486,12 @@ class ApprovePanel(QMainWindow, Ui_ApprovePanel):
     def closeEvent(self, event):
         self.setupUi(self)
         self.binding_btn()
+        self.label_6.setVisible(True)
+        # print(self.visible_3, self.visible_4, self.visible_5, self.visible_6)
+        if True in [self.visible_3, self.visible_4, self.visible_5, self.visible_6]:
+            MainWindow.label_3.setVisible(True)
+        else:
+            MainWindow.label_3.setVisible(False)
         MainWindow.show()
 
 class ApplyLateClockIn(QDialog, Ui_ApplyLateClockIn):
@@ -5954,6 +6697,8 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         super(ForgetRecord, self).__init__()
         self.setupUi(self)
 
+        self.checkBox_5.setChecked(False)
+
         self.dateEdit.setDate(QDate.currentDate())
         self.dateEdit_3.setDate(QDate.currentDate())
         month = time.strftime("%m", time.localtime(time.time()))
@@ -5999,6 +6744,7 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         self.checkBox_2.stateChanged.connect(self.time_stamp_check)
         self.checkBox_3.stateChanged.connect(self.time_stamp_check)
         self.checkBox_4.stateChanged.connect(self.time_stamp_check)
+        self.checkBox_5.stateChanged.connect(self.time_stamp_check)
         self.checkBox_3.stateChanged.connect(self.singleTime_or_not)
         self.checkBox_4.stateChanged.connect(self.singleTime_or_not)
 
@@ -6120,7 +6866,11 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         if not self.checkBox_4.isChecked():
             clockout=None
 
-        time_func = lambda y: None if y == None else y.strftime("%H:%M:%S")
+        if clockout != None:
+            if self.checkBox_5.isChecked():
+                clockout = clockout + datetime.timedelta(days=1)
+
+        time_func = lambda y: None if y == None else y.strftime("%Y/%m/%d %H:%M:%S")
         msm = f'Submit request?\n' \
               f'Date of clock in/out forgotten: {clock_dt.strftime("%d/%m/%Y")}\n' \
               f'Clock-in: {time_func(clockin)}\n' \
@@ -6284,6 +7034,7 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
             self.timeEdit_3.setEnabled(True)
 
     def time_stamp_check(self):
+        #print(self.checkBox_5.isChecked())
         if self.checkBox_3.isChecked() == False or self.checkBox_4.isChecked() == False:
             self.label_31.setText('')
             return
@@ -6294,11 +7045,14 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         out_2 = int(self.timeEdit_6.text().replace(':', ''))
         in_2 = int(self.timeEdit_7.text().replace(':', ''))
         out_=int(self.timeEdit_3.text().replace(':',''))
+        #print(out_)
 
         clockin = datetime.datetime.strptime(
             self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_2.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+
         clockout = datetime.datetime.strptime(
             self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_3.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
+        #print(clockout)
         out1 = datetime.datetime.strptime(
             self.dateEdit_3.date().toString('yyyy/MM/dd/') + self.timeEdit_4.time().toString('hh:mm'), '%Y/%m/%d/%H:%M')
         in1 = datetime.datetime.strptime(
@@ -6316,6 +7070,11 @@ class ForgetRecord(QDialog, Ui_ForgetRecord):
         data_pre_input[5] = in1
         data_pre_input[6] = out2
         data_pre_input[7] = in2
+
+        if self.checkBox_5.isChecked():
+            out_ = out_ + 2400
+            data_pre_input[3] = clockout + datetime.timedelta(days=1)
+
 
         if self.checkBox.isChecked()==False:
             if not in_<out_:
@@ -7243,6 +8002,10 @@ class Monitor(QWidget, Ui_Monitor):
         self.destroy()
         OTSheet.show()
 
+    def close_monitor2(self):
+        self.destroy()
+        ClockReview.show()
+
     def initializing(self):
         self.label.setText('')
         self.progressBar.setValue(0)
@@ -7362,15 +8125,15 @@ class Exp_OT_Sheet(QThread):
         for each in res:
             calendar.append(list(each))
 
-        for each in calendar:
-            print(each)  # calendar record
+        #for each in calendar:
+            #print(each)  # calendar record
 
         userID_lst = []
         count = self.listWidget_2.count()
         for i in range(count):
             userID_lst.append(self.listWidget_2.item(i).text().split('----')[0].strip())
 
-        print(userID_lst)
+        #print(userID_lst)
 
         cur = DB.cursor()
         sql = """SELECT ID, NAME, CONTRACT_OR_NOT FROM akt_staff_"""
@@ -7391,8 +8154,8 @@ class Exp_OT_Sheet(QThread):
 
         for each_line in data_dict:
             id_contract[str(each_line[0])] = each_line[2]
-        print(id_name)
-        print(id_contract)
+        #print(id_name)
+        #print(id_contract)
 
 
         cur = DB.cursor()
@@ -7420,7 +8183,7 @@ class Exp_OT_Sheet(QThread):
                     each[5] = each[4]
                 leaverequest_lst.append(each)
 
-        print(leaverequest_lst)
+        #print(leaverequest_lst)
 
         #--------------------------UPDATE FOR V1.6BETA(START)
         cur = DB.cursor()
@@ -7444,7 +8207,7 @@ class Exp_OT_Sheet(QThread):
                 each = list(each)
                 applylate_lst.append(each)
 
-        print(applylate_lst)
+        #print(applylate_lst)
         # --------------------------UPDATE FOR V1.6BETA(END)
 
         weekday_dict = {1: 'Mon',
@@ -7486,7 +8249,7 @@ class Exp_OT_Sheet(QThread):
             self.update_label.emit(f'Creating OT Sheet for:        Staff ID: {each_id}      Name: {id_name[each_id]}')
 
             contract_or_not = id_contract[str(each_id)]
-            print(each_id, str(each_id) + strDT1, str(each_id) + strDT2)
+            # print(each_id, str(each_id) + strDT1, str(each_id) + strDT2)
             cur = DB.cursor()
             sql = """SELECT * FROM time_card WHERE SERIAL>=%s and SERIAL<=%s"""
             try:
@@ -7519,9 +8282,9 @@ class Exp_OT_Sheet(QThread):
                     each[7] = each[7] + datetime.timedelta(seconds=-each[7].second)
                 time_card.append(each)
 
-            for each in time_card:
-                print(each)  # time card record
-                print('--------------------------------------------------------------------')
+            #for each in time_card:
+                #print(each)  # time card record
+                #print('--------------------------------------------------------------------')
 
             set_format(wb, file_path, id_name[each_id])
 
@@ -7540,6 +8303,8 @@ class Exp_OT_Sheet(QThread):
                         ws.cell(row=i, column=j).fill = PatternFill("solid", fgColor='000000')
                     i += 1
 
+                if_leave = False
+                statement_when = None
                 for each in leaverequest_lst:
                     if str(each_id) == str(each[0]) and each_line[0] >= each[4] and each_line[0] <= each[5]:
                         if each_line[0] == each[4]:
@@ -7570,6 +8335,7 @@ class Exp_OT_Sheet(QThread):
                         ws[f'X{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
                         #break
                         # MODIFIED ON 12/3/2024 --------END
+                        if_leave = True   # ADDED ON 6/6/2025
 
                 ws[f'B{i}'].value = each_line[0]
                 ws[f'B{i}'].number_format = '[$-409]dd-mmm-yy;@'
@@ -7590,6 +8356,49 @@ class Exp_OT_Sheet(QThread):
                     ws[f'W{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
                     ws[f'X{i}'].font = Font(name=u'ＭＳ Ｐゴシック', bold=True, italic=False, size=11, color="FF0000")
                 # MODIFIED ON 12/3/2024 --------END
+
+                if str(each_line[3]).lower() == 'learning day' or str(each_line[3]).lower() == 'sports day' or str(each_line[3]).lower() == 'company trip':
+                    if not if_leave:
+                        ws[f'D{i}'].value = datetime.time(8, 30)
+                        ws[f'E{i}'].value = datetime.time(8, 30)
+                        ws[f'K{i}'].value = datetime.time(11, 30)
+                        ws[f'L{i}'].value = datetime.time(12, 30)
+                        ws[f'M{i}'].value = datetime.time(15, 0)
+                        ws[f'N{i}'].value = datetime.time(15, 15)
+                        ws[f'O{i}'].value = datetime.time(17, 45)
+                        ws[f'P{i}'].value = 9.25
+                        ws[f'Q{i}'].value = 8.00
+                        ws[f'R{i}'].value = datetime.time(8, 0)
+                        ws[f'S{i}'].value = 0
+                        ws[f'U{i}'].value = 0
+                    else:
+                        if statement_when == 'morning':
+                            ws[f'D{i}'].value = datetime.time(12, 30)
+                            ws[f'E{i}'].value = datetime.time(12, 30)
+                            ws[f'K{i}'].value = datetime.time(11, 30)
+                            ws[f'L{i}'].value = datetime.time(12, 30)
+                            ws[f'M{i}'].value = datetime.time(15, 0)
+                            ws[f'N{i}'].value = datetime.time(15, 15)
+                            ws[f'O{i}'].value = datetime.time(16, 45)
+                            ws[f'P{i}'].value = 4.25
+                            ws[f'Q{i}'].value = 4.00
+                            ws[f'R{i}'].value = datetime.time(4, 0)
+                            ws[f'S{i}'].value = 0
+                            ws[f'U{i}'].value = 0
+                        elif statement_when == 'afternoon':
+                            ws[f'D{i}'].value = datetime.time(7, 30)
+                            ws[f'E{i}'].value = datetime.time(7, 30)
+                            ws[f'K{i}'].value = datetime.time(11, 30)
+                            ws[f'L{i}'].value = datetime.time(12, 30)
+                            ws[f'M{i}'].value = datetime.time(15, 0)
+                            ws[f'N{i}'].value = datetime.time(15, 15)
+                            ws[f'O{i}'].value = datetime.time(11, 30)
+                            ws[f'P{i}'].value = 4.00
+                            ws[f'Q{i}'].value = 4.00
+                            ws[f'R{i}'].value = datetime.time(4, 0)
+                            ws[f'S{i}'].value = 0
+                            ws[f'U{i}'].value = 0
+
 
             excel_start_row = 8
             for data_line in time_card:
@@ -7678,9 +8487,9 @@ class Exp_OT_Sheet(QThread):
                             worked_hour = None
                         else:
                             if out_hour==None:   # UPDATE FOR V1.6BETA
-                                worked_hour = round((data_line[3] - clockin_sys).seconds / 3600, 2)  # UPDATE FOR V1.6BETA
+                                worked_hour = round((data_line[3] - clockin_sys).total_seconds() / 3600, 2)  # UPDATE FOR V1.6BETA
                             else:   # UPDATE FOR V1.6BETA
-                                worked_hour = round((data_line[3] - clockin_sys-out_hour).seconds / 3600, 2) #UPDATE FOR V1.6BETA
+                                worked_hour = round((data_line[3] - clockin_sys-out_hour).total_seconds() / 3600, 2) #UPDATE FOR V1.6BETA
                         ws[f'P{i}'].value = worked_hour
 
                         calculate_result = calculate_worktime(data_line=data_line)
@@ -7744,7 +8553,7 @@ class Exp_OT_Sheet(QThread):
                             pass
                         else:
                             if excl_break > 8:
-                                t_delta_seconds = (data_line[3] - clockin_sys).seconds - (9.25 * 3600)
+                                t_delta_seconds = (data_line[3] - clockin_sys).total_seconds() - (9.25 * 3600)
                                 ws[f'Q{i}'].value = 8
                                 ws[f'P{i}'].value = 9.25
                                 ws[f'O{i}'].value = (data_line[3] + datetime.timedelta(seconds=-t_delta_seconds)).time()
@@ -7927,7 +8736,8 @@ class Forget_All_Accepted(QThread):
                 else:
                     mailsender.send_approved_mail(email_add=info_lst2[1],
                                                   receiver_name=info_lst2[0],
-                                                  mode='forget')
+                                                  mode='forget',
+                                                  request_id=request_id)
             # ===========================================================
         #QMessageBox.information(self, 'Info', 'Request has been accepted!')
         ApprovePanel.show_forget_contents()
@@ -8031,7 +8841,8 @@ class Late_All_Accepted(QThread):
                 else:
                     mailsender.send_approved_mail(email_add=info_lst2[1],
                                                   receiver_name=info_lst2[0],
-                                                  mode='late')
+                                                  mode='late',
+                                                  request_id=request_id)
             # ===========================================================
         #QMessageBox.information(self, 'Info', 'Request has been accepted!')
         ApprovePanel.show_late_contents()
@@ -8158,7 +8969,8 @@ class Ot_All_Accepted(QThread):
                 else:
                     mailsender.send_approved_mail(email_add=info_lst2[1],
                                                   receiver_name=info_lst2[0],
-                                                  mode='ot')
+                                                  mode='ot',
+                                                  request_id=request_id)
             # ===========================================================
         #QMessageBox.information(self, 'Info', 'Request has been accepted!')
         ApprovePanel.show_ot_contents()
@@ -8350,7 +9162,8 @@ class Leave_All_Accepted(QThread):
                 else:
                     mailsender.send_approved_mail(email_add=info_lst2[1],
                                                   receiver_name=info_lst2[0],
-                                                  mode='leave')
+                                                  mode='leave',
+                                                  request_id=request_id)
             # ===========================================================
 
         ApprovePanel.show_leave_contents()
@@ -8401,26 +9214,26 @@ def calculate_worktime(data_line):
         if int(clock_in.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
             # 1
             if int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
             # 2
             elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1230'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                        '%Y%m%d%H%M') - clock_in).seconds
+                                                        '%Y%m%d%H%M') - clock_in).total_seconds()
             # 3
             elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500'):
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
                 work_time -= 3600
             # 4
             elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                        '%Y%m%d%H%M') - clock_in).seconds
+                                                        '%Y%m%d%H%M') - clock_in).total_seconds()
                 work_time -= 3600
             # 5
             else:
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
                 work_time -= 4500
 
         elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -8433,18 +9246,18 @@ def calculate_worktime(data_line):
             elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1500'):
                 work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
             # 8
             elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1515'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                         '%Y%m%d%H%M') - datetime.datetime.strptime(
                     clock_in.strftime('%Y%m%d') + '1230',
-                    '%Y%m%d%H%M')).seconds
+                    '%Y%m%d%H%M')).total_seconds()
             # 9
             else:
                 work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 work_time -= 900
 
         elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -8452,15 +9265,15 @@ def calculate_worktime(data_line):
             # 10
             if int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1500'):
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
             # 11
             elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1515'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                        '%Y%m%d%H%M') - clock_in).seconds
+                                                        '%Y%m%d%H%M') - clock_in).total_seconds()
             # 12
             else:
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
                 work_time -= 900
 
         elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -8472,9 +9285,9 @@ def calculate_worktime(data_line):
             # 14
             else:
                 work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
         else:
-            work_time = (clock_out - clock_in).seconds
+            work_time = (clock_out - clock_in).total_seconds()
 
         # ------------------计算离岗累计时间
         space_time1 = 0
@@ -8483,28 +9296,28 @@ def calculate_worktime(data_line):
             # 1
             if int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                space_time1 = (in1 - out1).seconds
+                space_time1 = (in1 - out1).total_seconds()
             # 2
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                          '%Y%m%d%H%M') - out1).seconds
+                                                          '%Y%m%d%H%M') - out1).total_seconds()
             # 3
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time1 = (in1 - out1).seconds - 3600
+                space_time1 = (in1 - out1).total_seconds() - 3600
             # 4
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out1).seconds - 3600
+                                                          '%Y%m%d%H%M') - out1).total_seconds() - 3600
             # 5
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time1 = (in1 - out1).seconds - 3600 - 900
+                space_time1 = (in1 - out1).total_seconds() - 3600 - 900
             # 6
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8517,7 +9330,7 @@ def calculate_worktime(data_line):
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                 space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 8
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8525,31 +9338,31 @@ def calculate_worktime(data_line):
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                           '%Y%m%d%H%M') - datetime.datetime.strptime(
-                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
             # 9
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                 in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds - 900
+                                                                '%Y%m%d%H%M')).total_seconds() - 900
             # 10
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time1 = (in1 - out1).seconds
+                space_time1 = (in1 - out1).total_seconds()
             # 11
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out1).seconds
+                                                          '%Y%m%d%H%M') - out1).total_seconds()
             # 12
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                 in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time1 = (in1 - out1).seconds - 900
+                space_time1 = (in1 - out1).total_seconds() - 900
             # 13
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -8561,38 +9374,38 @@ def calculate_worktime(data_line):
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                 in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 15
             else:
-                space_time1 = (in1 - out1).seconds
+                space_time1 = (in1 - out1).total_seconds()
 
         # -----------------out2 in2
         if out2 != '-' and in2 != '-':
             # 1
             if int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                space_time2 = (in2 - out2).seconds
+                space_time2 = (in2 - out2).total_seconds()
             # 2
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                          '%Y%m%d%H%M') - out2).seconds
+                                                          '%Y%m%d%H%M') - out2).total_seconds()
             # 3
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time2 = (in2 - out2).seconds - 3600
+                space_time2 = (in2 - out2).total_seconds() - 3600
             # 4
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out2).seconds - 3600
+                                                          '%Y%m%d%H%M') - out2).total_seconds() - 3600
             # 5
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time2 = (in2 - out2).seconds - 3600 - 900
+                space_time2 = (in2 - out2).total_seconds() - 3600 - 900
             # 6
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8605,7 +9418,7 @@ def calculate_worktime(data_line):
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                 space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 8
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8613,31 +9426,31 @@ def calculate_worktime(data_line):
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                           '%Y%m%d%H%M') - datetime.datetime.strptime(
-                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
             # 9
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                 in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds - 900
+                                                                '%Y%m%d%H%M')).total_seconds() - 900
             # 10
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time2 = (in2 - out2).seconds
+                space_time2 = (in2 - out2).total_seconds()
             # 11
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out2).seconds
+                                                          '%Y%m%d%H%M') - out2).total_seconds()
             # 12
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                 in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time2 = (in2 - out2).seconds - 900
+                space_time2 = (in2 - out2).total_seconds() - 900
             # 13
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -8649,10 +9462,10 @@ def calculate_worktime(data_line):
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                 in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 15
             else:
-                space_time2 = (in2 - out2).seconds
+                space_time2 = (in2 - out2).total_seconds()
 
         work_time -= space_time1
         work_time -= space_time2
@@ -8693,6 +9506,8 @@ def calculate_without_approved_ot(data_line):
     day_lag = data_line[8]
 
     clock_out = data_line[3]
+    #print(clock_out)
+    #print(data_line)
     if clock_out == None:
         clock_out = '-'
 
@@ -8730,26 +9545,27 @@ def calculate_without_approved_ot(data_line):
         if int(clock_in.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
             # 1
             if int(clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
             # 2
             elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1230'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                        '%Y%m%d%H%M') - clock_in).seconds
+                                                        '%Y%m%d%H%M') - clock_in).total_seconds()
             # 3
             elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500'):
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
                 work_time -= 3600
             # 4
             elif int(clock_out.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     clock_out.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                        '%Y%m%d%H%M') - clock_in).seconds
+                                                        '%Y%m%d%H%M') - clock_in).total_seconds()
                 work_time -= 3600
             # 5
             else:
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
+
                 work_time -= 4500
 
         elif int(clock_in.strftime('%Y%m%d') + '1130') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -8762,18 +9578,18 @@ def calculate_without_approved_ot(data_line):
             elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1500'):
                 work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
             # 8
             elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1515'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                         '%Y%m%d%H%M') - datetime.datetime.strptime(
                     clock_in.strftime('%Y%m%d') + '1230',
-                    '%Y%m%d%H%M')).seconds
+                    '%Y%m%d%H%M')).total_seconds()
             # 9
             else:
                 work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
                 work_time -= 900
 
         elif int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -8781,15 +9597,15 @@ def calculate_without_approved_ot(data_line):
             # 10
             if int(clock_in.strftime('%Y%m%d') + '1230') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1500'):
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
             # 11
             elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_out.strftime('%Y%m%d%H%M')) <= int(
                     clock_in.strftime('%Y%m%d') + '1515'):
                 work_time = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                        '%Y%m%d%H%M') - clock_in).seconds
+                                                        '%Y%m%d%H%M') - clock_in).total_seconds()
             # 12
             else:
-                work_time = (clock_out - clock_in).seconds
+                work_time = (clock_out - clock_in).total_seconds()
                 work_time -= 900
 
         elif int(clock_in.strftime('%Y%m%d') + '1500') < int(clock_in.strftime('%Y%m%d%H%M')) <= int(
@@ -8801,9 +9617,9 @@ def calculate_without_approved_ot(data_line):
             # 14
             else:
                 work_time = (clock_out - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                    '%Y%m%d%H%M')).seconds
+                                                                    '%Y%m%d%H%M')).total_seconds()
         else:
-            work_time = (clock_out - clock_in).seconds
+            work_time = (clock_out - clock_in).total_seconds()
 
         # ------------------计算离岗累计时间
         space_time1 = 0
@@ -8812,28 +9628,28 @@ def calculate_without_approved_ot(data_line):
             # 1
             if int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                space_time1 = (in1 - out1).seconds
+                space_time1 = (in1 - out1).total_seconds()
             # 2
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                          '%Y%m%d%H%M') - out1).seconds
+                                                          '%Y%m%d%H%M') - out1).total_seconds()
             # 3
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time1 = (in1 - out1).seconds - 3600
+                space_time1 = (in1 - out1).total_seconds() - 3600
             # 4
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out1).seconds - 3600
+                                                          '%Y%m%d%H%M') - out1).total_seconds() - 3600
             # 5
             elif int(out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time1 = (in1 - out1).seconds - 3600 - 900
+                space_time1 = (in1 - out1).total_seconds() - 3600 - 900
             # 6
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8846,7 +9662,7 @@ def calculate_without_approved_ot(data_line):
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                 space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 8
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8854,31 +9670,31 @@ def calculate_without_approved_ot(data_line):
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                           '%Y%m%d%H%M') - datetime.datetime.strptime(
-                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
             # 9
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                 in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds - 900
+                                                                '%Y%m%d%H%M')).total_seconds() - 900
             # 10
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time1 = (in1 - out1).seconds
+                space_time1 = (in1 - out1).total_seconds()
             # 11
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time1 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out1).seconds
+                                                          '%Y%m%d%H%M') - out1).total_seconds()
             # 12
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                 in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time1 = (in1 - out1).seconds - 900
+                space_time1 = (in1 - out1).total_seconds() - 900
             # 13
             elif (int(out1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -8890,38 +9706,38 @@ def calculate_without_approved_ot(data_line):
                     out1.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                 in1.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time1 = (in1 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 15
             else:
-                space_time1 = (in1 - out1).seconds
+                space_time1 = (in1 - out1).total_seconds()
 
         # -----------------out2 in2
         if out2 != '-' and in2 != '-':
             # 1
             if int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130'):
-                space_time2 = (in2 - out2).seconds
+                space_time2 = (in2 - out2).total_seconds()
             # 2
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1130',
-                                                          '%Y%m%d%H%M') - out2).seconds
+                                                          '%Y%m%d%H%M') - out2).total_seconds()
             # 3
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time2 = (in2 - out2).seconds - 3600
+                space_time2 = (in2 - out2).total_seconds() - 3600
             # 4
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out2).seconds - 3600
+                                                          '%Y%m%d%H%M') - out2).total_seconds() - 3600
             # 5
             elif int(out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time2 = (in2 - out2).seconds - 3600 - 900
+                space_time2 = (in2 - out2).total_seconds() - 3600 - 900
             # 6
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8934,7 +9750,7 @@ def calculate_without_approved_ot(data_line):
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
                 space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 8
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and (
@@ -8942,31 +9758,31 @@ def calculate_without_approved_ot(data_line):
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
                                                           '%Y%m%d%H%M') - datetime.datetime.strptime(
-                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).seconds
+                    clock_in.strftime('%Y%m%d') + '1230', '%Y%m%d%H%M')).total_seconds()
             # 9
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1130') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1230')) and int(
                 in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1230',
-                                                                '%Y%m%d%H%M')).seconds - 900
+                                                                '%Y%m%d%H%M')).total_seconds() - 900
             # 10
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')):
-                space_time2 = (in2 - out2).seconds
+                space_time2 = (in2 - out2).total_seconds()
             # 11
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and (
                     int(in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                 in2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')):
                 space_time2 = (datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1500',
-                                                          '%Y%m%d%H%M') - out2).seconds
+                                                          '%Y%m%d%H%M') - out2).total_seconds()
             # 12
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1230') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1500')) and int(
                 in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
-                space_time2 = (in2 - out2).seconds - 900
+                space_time2 = (in2 - out2).total_seconds() - 900
             # 13
             elif (int(out2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1500') and int(
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and (
@@ -8978,16 +9794,16 @@ def calculate_without_approved_ot(data_line):
                     out2.strftime('%Y%m%d%H%M')) <= int(clock_in.strftime('%Y%m%d') + '1515')) and int(
                 in2.strftime('%Y%m%d%H%M')) > int(clock_in.strftime('%Y%m%d') + '1515'):
                 space_time2 = (in2 - datetime.datetime.strptime(clock_in.strftime('%Y%m%d') + '1515',
-                                                                '%Y%m%d%H%M')).seconds
+                                                                '%Y%m%d%H%M')).total_seconds()
             # 15
             else:
-                space_time2 = (in2 - out2).seconds
+                space_time2 = (in2 - out2).total_seconds()
 
         work_time -= space_time1
         work_time -= space_time2
         # --------------------------如过午夜加上一天
         #if day_lag == 1:
-           # work_time += 86400   删除逻辑错误代码
+            #work_time += 86400   #删除逻辑错误代码
 
         over_time = work_time - 28800
         if over_time < 0:
@@ -9073,7 +9889,7 @@ def WriteUpdateCMD(new_name, old_name):
 if __name__ == '__main__':
     DB = None
     ID = -1
-    CURRENT_VER=3.1
+    CURRENT_VER=3.2
     HR_MODE = 0
 
     app = QApplication(sys.argv)
@@ -9101,5 +9917,6 @@ if __name__ == '__main__':
     OTSheet = OTSheet()
     Monitor = Monitor()
     Tipwindow = Tipwindow()
+    ClockReview = ClockReview()
 
     sys.exit(app.exec_())
